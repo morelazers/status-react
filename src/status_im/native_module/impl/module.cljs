@@ -93,6 +93,10 @@
   (when status
     (call-module #(.login status address password on-result))))
 
+(defn verify [address password on-result]
+  (when status
+    (call-module #(.verify status address password on-result))))
+
 (defn set-soft-input-mode [mode]
   (when status
     (call-module #(.setSoftInputMode status mode))))

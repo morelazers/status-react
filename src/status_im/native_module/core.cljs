@@ -18,6 +18,9 @@
 (defn login [address password callback]
   (native-module/login address password callback))
 
+(defn verify [address password callback]
+  (native-module/verify address password callback))
+
 (defn set-soft-input-mode [mode]
   (native-module/set-soft-input-mode mode))
 
