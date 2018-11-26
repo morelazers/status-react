@@ -29,7 +29,8 @@
             [status-im.ui.screens.profile.photo-capture.views :refer [profile-photo-capture]]
             [status-im.ui.screens.wallet.main.views :as wallet.main]
             [status-im.ui.screens.wallet.collectibles.views :refer [collectibles-list]]
-            [status-im.ui.screens.wallet.send.views :refer [send-transaction send-transaction-modal sign-message-modal]]
+            [status-im.ui.screens.wallet.send.views :as send.views
+             :refer [send-transaction send-transaction-modal sign-message-modal]]
             [status-im.ui.screens.wallet.choose-recipient.views :refer [choose-recipient]]
             [status-im.ui.screens.wallet.request.views :refer [request-transaction send-transaction-request]]
             [status-im.ui.screens.wallet.components.views :as wallet.components]
@@ -232,6 +233,8 @@
                                                     :recent-recipients       recent-recipients
                                                     :wallet-transaction-sent transaction-sent
                                                     :recipient-qr-code       recipient-qr-code
+                                                    :wallet-choose-amount    send.views/choose-amount-token
+                                                    :wallet-choose-asset     send.views/choose-asset
                                                     :wallet-send-assets      wallet.components/send-assets}
                                           :config  {:headerMode "none"}}
 
