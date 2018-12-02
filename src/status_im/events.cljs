@@ -92,7 +92,7 @@
 
 (handlers/register-handler-fx
  :load-chats-messages
- [(re-frame/inject-cofx :data-store/get-messages)
+ [(re-frame/inject-cofx :data-store/get-chat-messages)
   (re-frame/inject-cofx :data-store/get-referenced-messages)
   (re-frame/inject-cofx :data-store/get-user-statuses)]
  (fn [cofx]
@@ -119,7 +119,9 @@
   (re-frame/inject-cofx :data-store/get-all-contacts)
   (re-frame/inject-cofx :data-store/get-all-installations)
   (re-frame/inject-cofx :data-store/all-browsers)
-  (re-frame/inject-cofx :data-store/all-dapp-permissions)]
+  (re-frame/inject-cofx :data-store/all-dapp-permissions)
+  (re-frame/inject-cofx :data-store/get-messages)
+  (re-frame/inject-cofx :data-store/get-messages-user-statuses)]
  (fn [cofx [_ address]]
    (init/initialize-account cofx address)))
 
@@ -623,7 +625,7 @@
 
 (handlers/register-handler-fx
  :chat.ui/load-more-messages
- [(re-frame/inject-cofx :data-store/get-messages)
+ [(re-frame/inject-cofx :data-store/get-chat-messages)
   (re-frame/inject-cofx :data-store/get-user-statuses)
   (re-frame/inject-cofx :data-store/get-referenced-messages)]
  (fn [cofx _]

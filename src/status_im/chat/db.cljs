@@ -51,6 +51,17 @@
     {:from from
      :text (:text content)}))
 
+(defn add-messages-statuses
+  "Converts message groups into sequence of messages interspersed with datemarks,
+  with correct user statuses associated into message"
+  [messages message-statuses]
+  (reduce (fn [acc [message-id {:keys [content] :as message}]]
+            (assoc acc
+                   message-id
+                   (assoc message :user-statuses (get message-statuses message-id))))
+          {}
+          messages))
+
 (defn messages-with-datemarks-and-statuses
   "Converts message groups into sequence of messages interspersed with datemarks,
   with correct user statuses associated into message"

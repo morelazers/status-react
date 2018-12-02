@@ -13,6 +13,20 @@
           {}
           statuses))
 
+(defn- get-by-messages-ids
+  [message-ids]
+  (when (seq message-ids)
+    (-> @core/account-realm
+        (.objects "user-status")
+        (.filtered (str "(" (core/in-query "message-id" message-ids) ")"))
+        (core/all-clj :user-status)
+        prepare-statuses)))
+
+(re-frame/reg-cofx
+ :data-store/get-messages-user-statuses
+ (fn [cofx _]
+   (assoc cofx :get-messages-user-statuses get-by-messages-ids)))
+
 (defn- get-by-chat-and-messages-ids
   [chat-id message-ids]
   (-> @core/account-realm

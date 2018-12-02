@@ -11,6 +11,16 @@
       (update :message-type keyword)
       (update :content edn/read-string)))
 
+(defn- get-messages
+  ([]
+   (get-messages 0))
+  ([from]
+   (let [messages (-> (core/get-all @core/account-realm :message)
+                      (core/sorted :timestamp :desc)
+                      (core/page from (+ from constants/default-number-of-messages))
+                      (core/all-clj :message))]
+     (map transform-message messages))))
+
 (defn- get-by-chat-id
   ([chat-id]
    (get-by-chat-id chat-id 0))
@@ -51,7 +61,12 @@
 (re-frame/reg-cofx
  :data-store/get-messages
  (fn [cofx _]
-   (assoc cofx :get-stored-messages get-by-chat-id)))
+   (assoc cofx :get-stored-messages get-messages)))
+
+(re-frame/reg-cofx
+ :data-store/get-chat-messages
+ (fn [cofx _]
+   (assoc cofx :get-stored-chat-messages get-by-chat-id)))
 
 (defn- sha3 [s]
   (.sha3 dependencies/Web3.prototype s))

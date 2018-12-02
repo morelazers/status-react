@@ -88,8 +88,6 @@
   [message-view message
    (let [collapsible? (and (:should-collapse? content) group-chat)]
      [react/view
-      (when (:response-to content)
-        [quoted-message (:response-to content) outgoing current-public-key])
       [react/text (cond-> {:style           (style/text-message collapsible? outgoing)}
                     (and collapsible? (not expanded?))
                     (assoc :number-of-lines constants/lines-collapse-threshold))
@@ -217,11 +215,10 @@
         (if (and (not outgoing)
                  (:command content))
           [command-status content]
-          (when last-outgoing?
-            (if (= message-type :group-user-message)
-              [group-message-delivery-status message]
-              (if outgoing
-                [text-status status]))))))))
+          (if (= message-type :group-user-message)
+            [group-message-delivery-status message]
+            (if outgoing
+              [text-status status])))))))
 
 (defview message-author-name [from message-username]
   (letsubs [username [:contacts/contact-name-by-identity from]]

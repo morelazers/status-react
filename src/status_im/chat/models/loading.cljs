@@ -68,7 +68,7 @@
    statuses))
 
 (fx/defn load-chats-messages
-  [{:keys [db get-stored-messages get-stored-user-statuses get-referenced-messages]
+  [{:keys [db get-stored-chat-messages get-stored-user-statuses get-referenced-messages]
     :as cofx}]
   (let [chats (:chats db)
         public-key (accounts.db/current-public-key cofx)]
@@ -78,7 +78,7 @@
            db :chats
            (reduce
             (fn [chats chat-id]
-              (let [chat-messages         (index-messages (get-stored-messages chat-id))
+              (let [chat-messages         (index-messages (get-stored-chat-messages chat-id))
                     message-ids           (keys chat-messages)
                     statuses              (get-stored-user-statuses chat-id message-ids)
                     unviewed-messages-ids (get-unviewed-messages-ids statuses public-key)]
@@ -134,12 +134,12 @@
 (defn load-more-messages
   "Loads more messages for current chat"
   [{{:keys [current-chat-id] :as db} :db
-    get-stored-messages :get-stored-messages
+    get-stored-chat-messages :get-stored-chat-messages
     get-stored-user-statuses :get-stored-user-statuses
     get-referenced-messages :get-referenced-messages :as cofx}]
   (when-not (get-in db [:chats current-chat-id :all-loaded?])
     (let [loaded-count        (count (get-in db [:chats current-chat-id :messages]))
-          new-messages        (get-stored-messages current-chat-id loaded-count)
+          new-messages        (get-stored-chat-messages current-chat-id loaded-count)
           indexed-messages    (index-messages new-messages)
           referenced-messages (into empty-message-map
                                     (get-referenced-messages (get-referenced-ids indexed-messages)))

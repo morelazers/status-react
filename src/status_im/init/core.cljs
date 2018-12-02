@@ -2,6 +2,7 @@
   (:require [re-frame.core :as re-frame]
             [status-im.chat.models.loading :as chat-loading]
             [status-im.accounts.core :as accounts.core]
+            [status-im.messages.core :as messages.core]
             [status-im.accounts.login.core :as accounts.login]
             [status-im.accounts.update.core :as accounts.update]
             [status-im.constants :as constants]
@@ -241,6 +242,7 @@
              :notifications/get-fcm-token nil}
             (initialize-account-db address)
             (contact/load-contacts)
+            (messages.core/load-messages)
             (pairing/load-installations)
             #(when (dev-mode? %)
                (models.dev-server/start))

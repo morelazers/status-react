@@ -123,8 +123,9 @@
     (fx/merge cofx
               {:db            (cond->
                                (-> db
+                                   (assoc-in [:messages message-id] prepared-message)
                                    (update-in [:chats chat-id :messages] assoc message-id prepared-message)
-                                   ;; this will increase last-clock-value twice when sending our own messages
+                                      ;; this will increase last-clock-value twice when sending our own messages
                                    (update-in [:chats chat-id :last-clock-value] (partial utils.clocks/receive clock-value)))
 
                                 (and (not current-chat?)
@@ -367,9 +368,11 @@
         updated-status (-> db
                            (get-in [:chats chat-id :message-statuses message-id from])
                            (assoc :status status))]
-    {:db            (assoc-in db
-                              [:chats chat-id :message-statuses message-id from]
-                              updated-status)
+    {:db            (-> db
+                        (assoc-in [:chats chat-id :message-statuses message-id from]
+                                  updated-status)
+                        (assoc-in [:messages message-id :message-statuses message-id from]
+                                  updated-status))
      :data-store/tx [(user-statuses-store/save-status-tx updated-status)]}))
 
 (fx/defn resend-message [cofx chat-id message-id]

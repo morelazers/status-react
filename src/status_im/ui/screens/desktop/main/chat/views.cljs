@@ -109,8 +109,6 @@
                                                 :on-select #(when (message-sent? user-statuses current-public-key)
                                                               (re-frame/dispatch [:chat.ui/reply-to-message message-id old-message-id]))}])))}
     [react/view {:style styles/message-container}
-     (when (:response-to content)
-       [quoted-message (:response-to content) false current-public-key])
      [react/text {:style           (styles/message-text false)
                   :selectable      true
                   :selection-color colors/blue-light}
@@ -136,13 +134,12 @@
 
 (views/defview message-with-name-and-avatar [text {:keys [from first-in-group? timestamp] :as message}]
   [react/view
-   (when first-in-group?
-     [react/view {:style {:flex-direction :row :margin-top 24}}
-      [member-photo from]
-      [message-author-name message]
-      [react/view {:style {:flex 1}}]
-      [react/text {:style styles/message-timestamp}
-       (time/timestamp->time timestamp)]])
+   [react/view {:style {:flex-direction :row :margin-top 24}}
+    [member-photo from]
+    [message-author-name message]
+    [react/view {:style {:flex 1}}]
+    [react/text {:style styles/message-timestamp}
+     (time/timestamp->time timestamp)]]
    [react/view {:style styles/not-first-in-group-wrapper}
     [photo-placeholder]
     [message-without-timestamp text message]]])
@@ -171,72 +168,55 @@
 (defmethod message :default
   [text me? {:keys [message-id chat-id message-status user-statuses from
                     current-public-key content-type outgoing type value] :as message}]
-  (if (= type :datemark)
-    ^{:key (str "datemark" message-id)}
-    [message.datemark/chat-datemark value]
-    (when (contains? constants/desktop-content-types content-type)
-      (when (nil? message-id)
-        (log/debug "nil?" message))
-      (reagent.core/create-class
-       {:component-did-mount
-        #(when (and message-id
-                    chat-id
-                    (not outgoing)
-                    (not= :seen message-status)
-                    (not= :seen (keyword (get-in user-statuses [current-public-key :status]))))
-           (re-frame/dispatch [:send-seen! {:chat-id    chat-id
-                                            :from       from
-                                            :message-id message-id}]))
-        :reagent-render
-        (fn []
-          ^{:key (str "message" message-id)}
-          [react/view
-           [message-with-name-and-avatar text message]
-           [react/view {:style (message.style/delivery-status outgoing)}
-            [message/message-delivery-status message]]])}))))
-
-(def load-step 5)
-
-(defn load-more [all-messages-count messages-to-load]
-  (let [next-count (min all-messages-count (+ @messages-to-load load-step))]
-    (reset! messages-to-load next-count)))
+  (when (contains? constants/desktop-content-types content-type)
+    (when (nil? message-id)
+      (log/debug "nil?" message))
+    (reagent.core/create-class
+     {:component-did-mount
+      #(when (and message-id
+                  chat-id
+                  (not outgoing)
+                  (not= :seen message-status)
+                  (not= :seen (keyword (get-in user-statuses [current-public-key :status]))))
+         (re-frame/dispatch [:send-seen! {:chat-id    chat-id
+                                          :from       from
+                                          :message-id message-id}]))
+      :reagent-render
+      (fn []
+        ^{:key (str "message" message-id)}
+        [react/view
+         [message-with-name-and-avatar text message]
+         [react/view {:style (message.style/delivery-status outgoing)}
+          [message/message-delivery-status message]]])})))
 
 (views/defview messages-view [{:keys [chat-id group-chat]}]
-  (views/letsubs [messages [:chats/current-chat-messages-stream]
+  (views/letsubs [messages [:messages/messages]
                   current-public-key [:account/public-key]
-                  messages-to-load (reagent/atom load-step)
-                  chat-id* (reagent/atom nil)]
-    {:component-did-update #(load-more (count messages) messages-to-load)
-     :component-did-mount  #(load-more (count messages) messages-to-load)}
-    (let [scroll-ref (atom nil)
-          scroll-timer (atom nil)
-          scroll-height (atom nil)
-          _ (when (or (not @chat-id*) (not= @chat-id* chat-id))
-              (do
-                (reset! messages-to-load load-step)
-                (reset! chat-id* chat-id)))]
-      [react/view {:style styles/messages-view}
-       [react/scroll-view {:scrollEventThrottle    16
-                           :headerHeight styles/messages-list-vertical-padding
-                           :footerWidth styles/messages-list-vertical-padding
-                           :enableArrayScrollingOptimization true
-                           :inverted true
-                           :on-scroll              (fn [e]
-                                                     (let [ne (.-nativeEvent e)
-                                                           y (.-y (.-contentOffset ne))]
-                                                       (when (<= y 0)
-                                                         (when @scroll-timer (js/clearTimeout @scroll-timer))
-                                                         (reset! scroll-timer (js/setTimeout #(re-frame/dispatch [:chat.ui/load-more-messages]) 300)))
-                                                       (reset! scroll-height (+ y (.-height (.-layoutMeasurement ne))))))
-                           :ref                    #(reset! scroll-ref %)}
-        [react/view
-         (doall
-          (for [{:keys [from content] :as message-obj} (take @messages-to-load messages)]
-            ^{:key message-obj}
-            [message (:text content) (= from current-public-key)
-             (assoc message-obj :group-chat group-chat
-                    :current-public-key current-public-key)]))]]
-       [connectivity/error-view]])))
+                  current-message (reagent/atom 0)]
+    (let [{:keys [from content] :as message-obj} (nth (vals messages) @current-message)
+          response (get messages (:response-to content))]
+      [react/view {:style styles/messages-view
+                   :onKeyPress #(println %)}
+       (when (< @current-message
+                (dec (count messages)))
+         [react/touchable-highlight {:on-press #(swap! current-message inc)
+                                     :style styles/send-button}
+          [react/text "Next"]])
+       (when-not (zero? @current-message)
+         [react/touchable-highlight {:on-press #(swap! current-message dec)}
+          [react/text "Previous"]])
+       (when response
+         [react/view
+          [react/text "Original post"]
+          [message (:text (:content response)) (= from current-public-key)
+           (assoc response :group-chat group-chat
+                  :current-public-key current-public-key)]])
+       ^{:key message-obj}
+       #_[react/view {:style {:flex 1 :background-color :red}}
+          [react/text (:text content)]]
+       [message (:text content) (= from current-public-key)
+        (assoc message-obj :group-chat group-chat
+               :current-public-key current-public-key)]])))
 
 (views/defview send-button [inp-ref network-status]
   (views/letsubs [{:keys [input-text]} [:chats/current-chat]]

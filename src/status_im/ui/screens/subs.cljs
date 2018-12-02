@@ -2,6 +2,7 @@
   (:require [re-frame.core :refer [reg-sub subscribe]]
             [status-im.utils.ethereum.core :as ethereum]
             status-im.chat.subs
+            status-im.messages.subs
             status-im.contact.subs
             status-im.search.subs
             status-im.mailserver.subs
