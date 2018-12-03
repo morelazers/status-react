@@ -20,47 +20,9 @@
             [status-im.utils.config :as config]))
 
 (views/defview chat-list-item-inner-view [{:keys [chat-id name group-chat color public? public-key] :as chat-item}]
-  (views/letsubs [photo-path              [:contacts/chat-photo chat-id]
-                  unviewed-messages-count [:chats/unviewed-messages-count chat-id]
-                  chat-name               [:chats/chat-name chat-id]
-                  current-chat-id         [:chats/current-chat-id]
-                  {:keys [content] :as last-message} [:chats/last-message chat-id]]
-    (let [name (or chat-name
-                   (gfycat/generate-gfy public-key))
-          [unviewed-messages-label large?] (if (< 9 unviewed-messages-count)
-                                             ["9+" true]
-                                             [unviewed-messages-count false])
-          current? (= current-chat-id chat-id)]
-      [react/view {:style (styles/chat-list-item current?)}
-       [react/view {:style styles/img-container}
-        (if public?
-          [react/view {:style (styles/topic-image color)}
-           [react/text {:style styles/topic-text}
-            (string/capitalize (second name))]]
-          [react/image {:style styles/chat-icon
-                        :source {:uri photo-path}}])
-        (when (pos? unviewed-messages-count)
-          [react/view {:style styles/unread-messages-icon}
-           [react/text {:style (styles/unread-messages-text large?)} unviewed-messages-label]])]
-       [react/view {:style styles/chat-name-last-msg-box}
-        [react/view {:style styles/chat-name-box}
-         (when (and group-chat (not public?))
-           [icons/icon :icons/group-chat])
-         (when public?
-           [icons/icon :icons/public-chat])
-         [react/text {:ellipsize-mode  :tail
-                      :number-of-lines 1
-                      :style           (styles/chat-name current?)}
-          name]]
-        [react/text {:ellipsize-mode  :tail
-                     :number-of-lines 1
-                     :style           styles/chat-last-message}
-         (if (= constants/content-type-command (:content-type last-message))
-           [chat-item/command-short-preview last-message]
-           (or (:text content)
-               (i18n/label :no-messages-yet)))]]
-       [react/view {:style styles/timestamp}
-        [chat-item/message-timestamp (:timestamp last-message)]]])))
+  [react/view {:style (styles/topic-image color)}
+   [react/text {:style styles/topic-text}
+    "Inbox"]])
 
 (defn chat-list-item [[chat-id
                        {:keys [group-chat public?] :as chat}]]

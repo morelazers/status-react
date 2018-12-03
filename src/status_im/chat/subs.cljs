@@ -116,47 +116,6 @@
    (get chats current-chat-id)))
 
 (re-frame/reg-sub
- :chats/current-chat-message
- :<- [:chats/current-chat]
- (fn [{:keys [messages]} [_ message-id]]
-   (get messages message-id)))
-
-(re-frame/reg-sub
- :chats/current-chat-messages
- :<- [:chats/current-chat]
- (fn [{:keys [messages]}]
-   (or messages {})))
-
-(re-frame/reg-sub
- :chats/current-chat-message-groups
- :<- [:chats/current-chat]
- (fn [{:keys [message-groups]}]
-   (or message-groups {})))
-
-(re-frame/reg-sub
- :chats/current-chat-message-statuses
- :<- [:chats/current-chat]
- (fn [{:keys [message-statuses]}]
-   (or message-statuses {})))
-
-(re-frame/reg-sub
- :chats/current-chat-referenced-messages
- :<- [:chats/current-chat]
- (fn [{:keys [referenced-messages]}]
-   (or referenced-messages {})))
-
-(re-frame/reg-sub
- :chats/current-chat-messages-stream
- :<- [:chats/current-chat-messages]
- :<- [:chats/current-chat-message-groups]
- :<- [:chats/current-chat-message-statuses]
- :<- [:chats/current-chat-referenced-messages]
- (fn [[messages message-groups message-statuses referenced-messages]]
-   (-> (chat.db/sort-message-groups message-groups messages)
-       (chat.db/messages-with-datemarks-and-statuses messages message-statuses referenced-messages)
-       chat.db/messages-stream)))
-
-(re-frame/reg-sub
  :chats/available-commands
  :<- [::get-commands-for-chat]
  :<- [:chats/current-chat]

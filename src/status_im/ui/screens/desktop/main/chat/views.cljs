@@ -12,6 +12,7 @@
             [status-im.constants :as constants]
             [status-im.utils.identicon :as identicon]
             [status-im.utils.datetime :as time]
+            [status-im.ui.components.button.view :as button]
             [status-im.utils.utils :as utils]
             [status-im.ui.components.react :as react]
             [status-im.ui.components.connectivity.view :as connectivity]
@@ -171,40 +172,28 @@
   (when (contains? constants/desktop-content-types content-type)
     (when (nil? message-id)
       (log/debug "nil?" message))
-    (reagent.core/create-class
-     {:component-did-mount
-      #(when (and message-id
-                  chat-id
-                  (not outgoing)
-                  (not= :seen message-status)
-                  (not= :seen (keyword (get-in user-statuses [current-public-key :status]))))
-         (re-frame/dispatch [:send-seen! {:chat-id    chat-id
-                                          :from       from
-                                          :message-id message-id}]))
-      :reagent-render
-      (fn []
-        ^{:key (str "message" message-id)}
-        [react/view
-         [message-with-name-and-avatar text message]
-         [react/view {:style (message.style/delivery-status outgoing)}
-          [message/message-delivery-status message]]])})))
+    ^{:key (str "message" message-id)}
+    [react/view
+     [message-with-name-and-avatar text message]
+     [react/view {:style (message.style/delivery-status outgoing)}
+      [message/message-delivery-status message]]]))
 
 (views/defview messages-view [{:keys [chat-id group-chat]}]
   (views/letsubs [messages [:messages/messages]
                   current-public-key [:account/public-key]
                   current-message (reagent/atom 0)]
-    (let [{:keys [from content] :as message-obj} (nth (vals messages) @current-message)
+    (let [{:keys [from content message-id] :as message-obj} (nth (vals messages) @current-message)
           response (get messages (:response-to content))]
-      [react/view {:style styles/messages-view
-                   :onKeyPress #(println %)}
-       (when (< @current-message
-                (dec (count messages)))
-         [react/touchable-highlight {:on-press #(swap! current-message inc)
-                                     :style styles/send-button}
-          [react/text "Next"]])
-       (when-not (zero? @current-message)
-         [react/touchable-highlight {:on-press #(swap! current-message dec)}
-          [react/text "Previous"]])
+      [react/view {:flex 1}
+       [react/view {:style {:flex-direction :row}}
+        (when-not (zero? @current-message)
+          [button/primary-button {:on-press #(do
+                                               (re-frame/dispatch [:message/seen message-id])
+                                               (swap! current-message dec))} "Previous"])
+        [react/view {:style {:flex 1}}]
+        (when (< @current-message
+                 (dec (count messages)))
+          [button/primary-button {:on-press #(swap! current-message inc)} "Next"])]
        (when response
          [react/view
           [react/text "Original post"]
@@ -212,8 +201,6 @@
            (assoc response :group-chat group-chat
                   :current-public-key current-public-key)]])
        ^{:key message-obj}
-       #_[react/view {:style {:flex 1 :background-color :red}}
-          [react/text (:text content)]]
        [message (:text content) (= from current-public-key)
         (assoc message-obj :group-chat group-chat
                :current-public-key current-public-key)]])))

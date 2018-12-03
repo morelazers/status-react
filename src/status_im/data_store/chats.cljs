@@ -62,15 +62,6 @@
       ;; We cap the clock value to a safe value in case the db has been polluted
       (assoc :last-clock-value (get-last-clock-value chat-id))))
 
-(re-frame/reg-cofx
- :data-store/all-chats
- (fn [cofx _]
-   (assoc cofx :all-stored-chats (map normalize-chat
-                                      (-> @core/account-realm
-                                          (core/get-all :chat)
-                                          (core/sorted :timestamp :desc)
-                                          (core/all-clj :chat))))))
-
 (defn save-chat-tx
   "Returns tx function for saving chat"
   [{:keys [chat-id] :as chat}]

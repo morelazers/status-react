@@ -35,4 +35,4 @@
                      :style    {:color colors/red}
                      :on-press #(do
                                   (close-message-options-fn)
-                                  (re-frame/dispatch [:chat.ui/delete-message chat-id message-id]))}]]]]))
+                                  (re-frame/dispatch [:chat.ui/delete-message message-id]))}]]]]))

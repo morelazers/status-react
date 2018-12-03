@@ -13,7 +13,6 @@
             [status-im.chat.commands.input :as commands.input]
             [status-im.chat.models :as chat]
             [status-im.chat.models.input :as chat.input]
-            [status-im.chat.models.loading :as chat.loading]
             [status-im.chat.models.message :as chat.message]
             [status-im.contact.core :as contact]
             [status-im.data-store.core :as data-store]
@@ -45,7 +44,7 @@
             [taoensso.timbre :as log]
             [status-im.utils.datetime :as time]
             [status-im.chat.commands.core :as commands]
-            [status-im.chat.models.loading :as chat-loading]))
+            [status-im.messages.core :as messages.core]))
 
 ;; init module
 
@@ -92,26 +91,16 @@
 
 (handlers/register-handler-fx
  :load-chats-messages
- [(re-frame/inject-cofx :data-store/get-chat-messages)
-  (re-frame/inject-cofx :data-store/get-referenced-messages)
-  (re-frame/inject-cofx :data-store/get-user-statuses)]
- (fn [cofx]
-   (chat-loading/load-chats-messages cofx)))
+ (fn [cofx]))
 
 (handlers/register-handler-fx
  :init-chats
  [(re-frame/inject-cofx :web3/get-web3)
-  (re-frame/inject-cofx :get-default-dapps)
-  (re-frame/inject-cofx :data-store/all-chats)
   (re-frame/inject-cofx :data-store/get-all-mailservers)
   (re-frame/inject-cofx :data-store/transport)
   (re-frame/inject-cofx :data-store/mailserver-topics)]
  (fn [{:keys [db] :as cofx} [_ address]]
-   (fx/merge cofx
-             {:db (assoc db :chats/loading? false)}
-             (chat-loading/initialize-chats)
-             (protocol/initialize-protocol address)
-             (chat-loading/initialize-pending-messages))))
+   (protocol/initialize-protocol cofx address)))
 
 (handlers/register-handler-fx
  :init.callback/account-change-success
@@ -628,8 +617,7 @@
  [(re-frame/inject-cofx :data-store/get-chat-messages)
   (re-frame/inject-cofx :data-store/get-user-statuses)
   (re-frame/inject-cofx :data-store/get-referenced-messages)]
- (fn [cofx _]
-   (chat.loading/load-more-messages cofx)))
+ (fn [cofx _]))
 
 (handlers/register-handler-fx
  :chat.ui/start-chat
@@ -658,13 +646,13 @@
 
 (handlers/register-handler-fx
  :chat.ui/delete-message
- (fn [cofx [_ chat-id message-id]]
-   (chat.message/delete-message cofx chat-id message-id)))
+ (fn [cofx [_ message-id]]
+   (chat.message/delete-message cofx message-id)))
 
 (handlers/register-handler-fx
  :chat.ui/message-expand-toggled
- (fn [cofx [_ chat-id message-id]]
-   (chat.message/toggle-expand-message cofx chat-id message-id)))
+ (fn [cofx [_ message-id]]
+   (chat.message/toggle-expand-message cofx message-id)))
 
 (handlers/register-handler-fx
  :chat.ui/show-profile
@@ -734,7 +722,12 @@
 (handlers/register-handler-fx
  :message/update-message-status
  (fn [cofx [_ chat-id message-id status]]
-   (chat.message/update-message-status cofx chat-id message-id status)))
+   (chat.message/update-message-status cofx message-id status)))
+
+(handlers/register-handler-fx
+ :message/seen
+ (fn [cofx [_ message-id]]
+   (messages.core/message-seen cofx message-id)))
 
 ;; signal module
 

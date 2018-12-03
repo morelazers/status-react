@@ -115,7 +115,7 @@
           (i18n/label :t/empty-chat-description))]])))
 
 (defview messages-view [group-chat modal?]
-  (letsubs [messages           [:chats/current-chat-messages-stream]
+  (letsubs [messages           [:messages/messages]
             chat               [:chats/current-chat]
             current-public-key [:account/public-key]]
     {:component-did-mount #(re-frame/dispatch [:chat.ui/set-chat-ui-props {:messages-focused? true

@@ -44,7 +44,7 @@
                       :advanced-settings profile.views/advanced-settings
                       :chat-profile chat.views/chat-profile
                       :backup-recovery-phrase profile.views/backup-recovery-phrase
-                      status-view)]
+                      chat.views/chat-view)]
       [react/view {:style {:flex 1}}
        [component]])))
 

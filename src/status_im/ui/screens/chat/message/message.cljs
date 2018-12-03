@@ -80,7 +80,7 @@
 
 (defn- expand-button [expanded? chat-id message-id]
   [react/text {:style    style/message-expand-button
-               :on-press #(re-frame/dispatch [:chat.ui/message-expand-toggled chat-id message-id])}
+               :on-press #(re-frame/dispatch [:chat.ui/message-expand-toggled message-id])}
    (i18n/label (if expanded? :show-less :show-more))])
 
 (defn text-message
@@ -181,7 +181,7 @@
                                                                                 :action #(re-frame/dispatch [:chat.ui/resend-message chat-id message-id])}
                                                                                {:label        (i18n/label :delete-message)
                                                                                 :destructive? true
-                                                                                :action       #(re-frame/dispatch [:chat.ui/delete-message chat-id message-id])}]})
+                                                                                :action       #(re-frame/dispatch [:chat.ui/delete-message message-id])}]})
                                                  (re-frame/dispatch
                                                   [:chat.ui/show-message-options {:chat-id    chat-id
                                                                                   :message-id message-id}])))}

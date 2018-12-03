@@ -1,6 +1,5 @@
 (ns status-im.init.core
   (:require [re-frame.core :as re-frame]
-            [status-im.chat.models.loading :as chat-loading]
             [status-im.accounts.core :as accounts.core]
             [status-im.messages.core :as messages.core]
             [status-im.accounts.login.core :as accounts.login]

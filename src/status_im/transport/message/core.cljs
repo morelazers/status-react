@@ -72,7 +72,7 @@
         (let [{:keys [fcm-token]} (get-in db [:contacts/contacts chat-id])]
           (fx/merge cofx
                     (remove-hash envelope-hash)
-                    (models.message/update-message-status chat-id message-id status)
+                    (models.message/update-message-status message-id status)
                     (models.message/send-push-notification fcm-token status)))))))
 
 (fx/defn set-contact-message-envelope-hash
