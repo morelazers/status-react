@@ -102,6 +102,20 @@
       (and peers-disconnected? searching?)               "Disconnected and searching"
       :else                                              "Disconnected")))
 
+(defn packet-keys [direction]
+  {:pre [(#{:in :out} direction)]}
+  [:misc direction :packets :Overall])
+
+(defn bandwidth-success-callback
+  [{:keys [p2p mailserver les whisper], :as metrics}]
+  (let [currently-running-services      (keys metrics)
+        mailserver-request-process-time (get-in mailserver [:requestProcessTime :Overall])
+        les-packets-in                  (get-in les (packet-keys :in))
+        les-packets-out                 (get-in les (packet-keys :out))
+        p2p-inbound-traffic             (get-in p2p [:InboundTraffic :Overall])
+        p2p-outbound-traffic            (get-in p2p [:OutbountTraffic :Overall])]
+    (println metrics)))
+
 (defn bandwidth-metrics []
   (let [args {:jsonrpc "2.0"
               :id      2
@@ -110,11 +124,10 @@
         payload (.stringify js/JSON (clj->js args))]
     (status/call-private-rpc
      payload
-     (mailserver.core/response-handler #(log/debug "we got the debug metrics" %)
-                                       #(log/error "we did not get the debug metrics" %)))))
+     (mailserver.core/response-handler bandwidth-success-callback
+                                       #(println "we did not get the debug metrics" %)))))
 
 ;; (bandwidth-metrics)
-
 
 (views/defview advanced-settings []
   (views/letsubs [installations    [:pairing/installations]
