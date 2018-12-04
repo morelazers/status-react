@@ -270,6 +270,7 @@
           [react/text-input
            {:on-change-text #(do (reset! address %)
                                  (reset! error-message nil))
+            :auto-focus true
             :auto-capitalize :none
             :auto-correct false
             :placeholder "0x... or name.eth"
@@ -407,7 +408,7 @@
                                                    {:chain chain
                                                     :on-address
                                                     #(re-frame/dispatch [:navigate-to :wallet-choose-amount
-                                                                         {:transaction {:to %}
+                                                                         {:transaction (assoc transaction :to %)
                                                                           :native-currency native-currency
                                                                           :modal? modal?}])})}
                             :contacts {:name "Contacts"
@@ -417,12 +418,74 @@
                                                     :on-contact
                                                     (fn [{:keys [address]}]
                                                       (re-frame/dispatch [:navigate-to :wallet-choose-amount
-                                                                          {:to address}]))})}}
+                                                                          {:modal? modal?
+                                                                           :native-currency native-currency
+                                                                           :transaction (assoc transaction :to address)}]))})}}
       :address]]))
 
 ;; ----------------------------------------------------------------------
 ;; Step 2 choosing an amount and token to send
 ;; ----------------------------------------------------------------------
+
+;; Choosing the gas amount
+(defview advanced-gas-input-panel [gas gas-price]
+  (letsubs [bottom-value    (animation/create-value -250)
+            opacity-value   (animation/create-value 0)]
+    {:component-did-mount #(animation/start
+                            (animation/parallel
+                             [(animation/timing opacity-value {:toValue  1
+                                                               :duration 500})
+                              (animation/timing bottom-value {:toValue  0
+                                                              #_:easing
+                                                              #_(.bezier (animation/easing) 0.685, 0.000, 0.025, 1.185)
+                                                              :duration 500})]))}
+
+    [react/animated-view {:style
+                          {:position :absolute
+                           :left     0
+                           :right    0
+                           :bottom   bottom-value}}
+     [react/animated-view {:style
+                           {:opacity            opacity-value
+                            :border-top-left-radius 8
+                            :border-top-right-radius 8
+                            :background-color   colors/white}}
+      ;top 
+      [react/view {:style {:justify-content :center
+                           :padding-top 22
+                           :padding-bottom 7}}
+       [react/text
+        {:style {:color colors/black
+                 :font-size 22
+                 :line-height 28
+                 :font-weight :bold
+                 :text-align :center}}
+        "Network fee settings"]
+       [react/text
+        {:style {:color colors/gray
+                 :font-size 15
+                 :line-height 22
+                 :text-align :center
+                 :padding-horizontal 45
+                 :padding-vertical 8}}
+        "This fee, known as gas is paid directly to the Ethereum network. Status does not collect any of these funds"]]
+      [react/view {:style {:border-top-width 1
+                           :border-top-color colors/black-transparent
+                           :padding-top 22
+                           :padding-bottom 7}}
+       [react/view {:style {:flex-direction :row}}
+        [react/touchable-highlight
+         {:style {:border-radius 21
+                  :width 40
+                  :height 40
+                  :background-color colors/blue
+                  :justify-content :center
+                  :align-items :center}}
+         [vector-icons/icon :icons/time
+          {:width 24
+           :color colors/white}]]]]]]))
+
+;; Choosing the asset
 
 (defn white-toolbar [modal? title]
   (let [action (if modal? actions/close actions/back)]
@@ -508,7 +571,11 @@
                    (when-let [amount' (money/internal->formatted amount symbol decimals)]
                      (str amount')))
    :inverted false
+   :edit-gas false
    :error-message nil})
+
+(defn toggle-edit-gas [state]
+  (swap! state update :edit-gas not))
 
 (defn input-currency-symbol [{:keys [inverted] :as state} {:keys [symbol] :as token} {:keys [code] :as fiat-currency}]
   {:pre [(boolean? inverted) (keyword? symbol) (string? code)]}
@@ -519,7 +586,7 @@
   (if (:inverted state) (name (:symbol token)) code))
 
 (defn token->fiat-conversion [prices token fiat-currency value]
-  {:pre [(map? prices) (map? token) (map? fiat-currency) (string? value)]}
+  {:pre [(map? prices) (map? token) (map? fiat-currency) value]}
   (when-let [price (get-in prices [(:symbol token)
                                    (-> fiat-currency :code keyword)
                                    :price])]
@@ -528,7 +595,7 @@
             (money/crypto->fiat price))))
 
 (defn fiat->token-conversion [prices token fiat-currency value]
-  {:pre [(map? prices) (map? token) (map? fiat-currency) (string? value)]}
+  {:pre [(map? prices) (map? token) (map? fiat-currency) value]}
   (when-let [price (get-in prices [(:symbol token)
                                    (-> fiat-currency :code keyword)
                                    :price])]
@@ -587,9 +654,18 @@
     (not (string/blank? input-str))
     (update-input-errors token fiat-currency prices)))
 
+(defn max-fee [gas gas-price]
+  {:pre [gas gas-price]}
+  (money/wei->ether (.times gas gas-price)))
+
+(defn network-fees [prices token fiat-currency gas-ether-price]
+  (some-> (token->fiat-conversion prices token fiat-currency gas-ether-price)
+          (money/with-precision 2)))
+
 (defn choose-amount-token-helper [{:keys [balance network prices fiat-currency
                                           native-currency all-tokens modal? transaction]}]
   {:pre [(map? native-currency)]}
+
   (let [tx-atom (reagent/atom transaction)
         token (or (fetch-token all-tokens network (:symbol transaction))
                   native-currency)
@@ -658,7 +734,7 @@
                                      :color "rgb(143,162,234)"}}
                  converted-phrase]]
                [react/view {:justify-content :center :flex-direction :row}
-                [react/touchable-highlight {:on-press (fn [])
+                [react/touchable-highlight {:on-press #(toggle-edit-gas state-atom)
                                             :style {:background-color colors/black-transparent
                                                     :padding-horizontal 13
                                                     :padding-vertical 7
@@ -668,8 +744,14 @@
                  [react/text {:style {:color colors/white
                                       :font-size 15
                                       :line-height 22}}
-                  "network fee ~ "]]]
+                  (str "network fee ~ "
+                       (network-fees prices token fiat-currency
+                                     (max-fee (:gas transaction)
+                                              (:gas-price transaction)))
+                       " "
+                       (:code fiat-currency))]]]
                [react/view {:flex 1}]
+
                [react/view {:flex-direction :row :padding 3}
                 [address-button {:underlay-color colors/white-transparent
                                  :background-color colors/black-transparent
@@ -702,7 +784,9 @@
                    [react/text {:style {:color (if disabled? colors/white colors/blue)
                                         :font-size 15
                                         :line-height 22}}
-                    (i18n/label :t/next)]])]]]))]))))
+                    (i18n/label :t/next)]])]
+               (when (:edit-gas state)
+                 [advanced-gas-input-panel (:gas transaction) (:gas-price transaction)])]]))]))))
 
 (defview choose-amount-token []
   (letsubs [{:keys [transaction modal? native-currency]} [:get-screen-params :wallet-choose-amount]

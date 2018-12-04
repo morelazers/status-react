@@ -173,6 +173,7 @@
      :icons/camera              (components.svg/slurp-svg "./resources/icons/camera.svg")
      :icons/check               (components.svg/slurp-svg "./resources/icons/check.svg")
      :icons/tiny-check          (components.svg/slurp-svg "./resources/icons/tiny_check.svg")
+     :icons/time                (components.svg/slurp-svg "./resources/icons/time.svg")
      :icons/dots                (components.svg/slurp-svg "./resources/icons/dots.svg")
      :icons/warning             (components.svg/slurp-svg "./resources/icons/warning.svg")
      :icons/settings            (components.svg/slurp-svg "./resources/icons/settings.svg")
