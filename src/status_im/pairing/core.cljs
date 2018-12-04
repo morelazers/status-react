@@ -6,12 +6,14 @@
             [status-im.ui.screens.navigation :as navigation]
             [status-im.utils.config :as config]
             [status-im.utils.platform :as utils.platform]
+            [status-im.chat.models :as models.chat]
             [status-im.accounts.db :as accounts.db]
             [status-im.transport.message.protocol :as protocol]
             [status-im.data-store.installations :as data-store.installations]
             [status-im.native-module.core :as native-module]
             [status-im.utils.identicon :as identicon]
             [status-im.data-store.contacts :as data-store.contacts]
+            [status-im.data-store.accounts :as data-store.accounts]
             [status-im.transport.message.pairing :as transport.pairing]))
 
 (def contact-batch-n 4)
@@ -101,22 +103,33 @@
   (let [account (-> db
                     :account/account
                     (select-keys account-mergeable-keys))]
-    (transport.pairing/SyncInstallation. {} account)))
+    (transport.pairing/SyncInstallation. {} account {})))
 
 (defn- contact-batch->sync-installation-message [batch]
   (let [contacts-to-sync (reduce (fn [acc {:keys [public-key] :as contact}]
                                    (assoc acc public-key (dissoc contact :photo-path)))
                                  {}
                                  batch)]
-    (transport.pairing/SyncInstallation. contacts-to-sync nil)))
+    (transport.pairing/SyncInstallation. contacts-to-sync {} {})))
+
+(defn- chats->sync-installation-messages [{:keys [db]}]
+  (->> db
+       :chats
+       vals
+       (filter :public?)
+       (filter :is-active)
+       (map #(select-keys % [:chat-id :public?]))
+       (map #(transport.pairing/SyncInstallation. {} {} %))))
 
 (defn sync-installation-messages [{:keys [db] :as cofx}]
   (let [contacts (:contacts/contacts db)
         contact-batches (partition-all contact-batch-n (->> contacts
                                                             vals
                                                             (remove :dapp?)))]
-    (conj (mapv contact-batch->sync-installation-message contact-batches)
-          (sync-installation-account-message cofx))))
+    (concat (mapv contact-batch->sync-installation-message contact-batches)
+
+            [(sync-installation-account-message cofx)]
+            (chats->sync-installation-messages cofx))))
 
 (defn enable [{:keys [db]} installation-id]
   {:db (assoc-in db
@@ -184,6 +197,11 @@
                (has-paired-installations? cofx))
       (protocol/send payload nil cofx))))
 
+(fx/defn sync-public-chat [cofx chat-id]
+  (let [sync-message (transport.pairing/SyncInstallation. {} {} {:public? true
+                                                                 :chat-id chat-id})]
+    (send-installation-message-fx cofx sync-message)))
+
 (defn send-installation-messages [cofx]
   ;; The message needs to be broken up in chunks as we hit the whisper size limit
   (let [sync-messages (sync-installation-messages cofx)
@@ -204,16 +222,20 @@
              {}
              contacts))
 
-(defn handle-sync-installation [{:keys [db] :as cofx} {:keys [contacts account]} sender]
+(defn handle-sync-installation [{:keys [db] :as cofx} {:keys [contacts account chat]} sender]
   (let [dev-mode? (get-in db [:account/account :dev-mode?])]
     (when (and (config/pairing-enabled? dev-mode?)
                (= sender (accounts.db/current-public-key cofx)))
       (let [new-contacts (merge-contacts (:contacts/contacts db) (ensure-photo-path contacts))
             new-account  (merge-account (:account/account db) account)]
-        {:db            (assoc db
-                               :contacts/contacts new-contacts
-                               :account/account new-account)
-         :data-store/tx [(data-store.contacts/save-contacts-tx (vals new-contacts))]}))))
+        (fx/merge cofx
+                  {:db                 (assoc db
+                                              :contacts/contacts new-contacts
+                                              :account/account new-account)
+                   :data-store/base-tx [(data-store.accounts/save-account-tx new-account)]
+                   :data-store/tx      [(data-store.contacts/save-contacts-tx (vals new-contacts))]}
+                  #(when (:public? chat)
+                     (models.chat/start-public-chat % (:chat-id chat) {:dont-navigate? true})))))))
 
 (defn handle-pair-installation [{:keys [db] :as cofx} {:keys [installation-id device-type]} timestamp sender]
   (let [dev-mode? (get-in db [:account/account :dev-mode?])]

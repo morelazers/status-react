@@ -4,6 +4,7 @@
             [status-im.i18n :as i18n]
             [status-im.utils.config :as config]
             [status-im.ui.screens.main-tabs.styles :as main-tabs.styles]
+            [status-im.ui.components.colors :as colors]
             [status-im.ui.components.icons.vector-icons :as icons]
             [status-im.ui.screens.home.styles :as home.styles]
             [status-im.utils.platform :as utils.platform]
@@ -31,11 +32,16 @@
 (defn pair! []
   (re-frame/dispatch [:pairing.ui/pair-devices-pressed]))
 
-(defn enable-installation! [installation-id _]
+(defn enable-installation! [installation-id]
   (re-frame/dispatch [:pairing.ui/enable-installation-pressed installation-id]))
 
-(defn disable-installation! [installation-id _]
+(defn disable-installation! [installation-id]
   (re-frame/dispatch [:pairing.ui/disable-installation-pressed installation-id]))
+
+(defn toggle-enabled! [installation-id enabled? _]
+  (if enabled?
+    (disable-installation! installation-id)
+    (enable-installation! installation-id)))
 
 (defn footer []
   [react/touchable-highlight {:on-press synchronize-installations!
@@ -72,10 +78,7 @@
 
 (defn render-row [{:keys [device-type enabled? installation-id]}]
   [react/touchable-highlight
-   {:on-press (if enabled?
-                (partial disable-installation! installation-id)
-                (partial enable-installation! installation-id))
-    :accessibility-label :installation-item}
+   {:accessibility-label :installation-item}
    [react/view {:style styles/installation-item}
     [react/view {:style (styles/pairing-button enabled?)}
      [icons/icon (if (= "desktop"
@@ -86,12 +89,11 @@
     [react/view {:style styles/pairing-actions-text}
      [react/view
       [react/text {:style styles/installation-item-name-text}
-       (gfycat/generate-gfy installation-id)]]
-     [react/view
-      [react/text {:style styles/installation-status}
-       (if enabled?
-         (i18n/label :t/syncing-enabled)
-         (i18n/label :t/syncing-disabled))]]]]])
+       (gfycat/generate-gfy installation-id)]]]
+    [react/view
+     [react/switch {:on-tint-color   colors/blue
+                    :value           enabled?
+                    :on-value-change (partial toggle-enabled! installation-id enabled?)}]]]])
 
 (defn render-rows [installations]
   [react/scroll-view {:style styles/wrapper}
