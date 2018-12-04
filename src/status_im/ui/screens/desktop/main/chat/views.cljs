@@ -184,16 +184,13 @@
                   current-message (reagent/atom 0)]
     (let [{:keys [from content message-id] :as message-obj} (nth (vals messages) @current-message)
           response (get messages (:response-to content))]
-      [react/view {:flex 1}
-       [react/view {:style {:flex-direction :row}}
-        (when-not (zero? @current-message)
-          [button/primary-button {:on-press #(do
-                                               (re-frame/dispatch [:message/seen message-id])
-                                               (swap! current-message dec))} "Previous"])
-        [react/view {:style {:flex 1}}]
-        (when (< @current-message
-                 (dec (count messages)))
-          [button/primary-button {:on-press #(swap! current-message inc)} "Next"])]
+      [react/view {:flex 1
+                   :flex-direction :row}
+       (when-not (zero? @current-message)
+         [button/primary-button {:style {:flex 1}
+                                 :on-press #(do
+                                              (re-frame/dispatch [:message/seen message-id])
+                                              (swap! current-message dec))} "Previous"])
        (when response
          [react/view
           [react/text "Original post"]
@@ -201,9 +198,14 @@
            (assoc response :group-chat group-chat
                   :current-public-key current-public-key)]])
        ^{:key message-obj}
-       [message (:text content) (= from current-public-key)
-        (assoc message-obj :group-chat group-chat
-               :current-public-key current-public-key)]])))
+       [react/view {:flex 1}
+        [message (:text content) (= from current-public-key)
+         (assoc message-obj :group-chat group-chat
+                :current-public-key current-public-key)]]
+       (when (< @current-message
+                (dec (count messages)))
+         [button/primary-button {:style {:flex 1}
+                                 :on-press #(swap! current-message inc)} "Next"])])))
 
 (views/defview send-button [inp-ref network-status]
   (views/letsubs [{:keys [input-text]} [:chats/current-chat]]
@@ -219,35 +221,6 @@
                                                 (re-frame/dispatch [:chat.ui/send-current-message])))}
        [react/view {:style (styles/send-icon inactive?)}
         [icons/icon :icons/arrow-left {:style (styles/send-icon-arrow inactive?)}]]])))
-
-(views/defview reply-message [from message-text]
-  (views/letsubs [username           [:contacts/contact-name-by-identity from]
-                  current-public-key [:account/public-key]]
-    [react/view {:style styles/reply-content-container}
-     [react/text {:style styles/reply-content-author}
-      (chat-utils/format-reply-author from username current-public-key)]
-     [react/text {:style styles/reply-content-message} message-text]]))
-
-(views/defview reply-member-photo [from]
-  (views/letsubs [photo-path [:chats/photo-path from]]
-    [react/image {:source {:uri (if (string/blank? photo-path)
-                                  (identicon/identicon from)
-                                  photo-path)}
-                  :style  styles/reply-photo-style}]))
-
-(views/defview reply-message-view []
-  (views/letsubs [{:keys [content from] :as message} [:chats/reply-message]]
-    (when message
-      [react/view {:style styles/reply-wrapper}
-       [react/view {:style styles/reply-container}
-        [reply-member-photo from]
-        [reply-message from (:text content)]]
-       [react/touchable-highlight
-        {:style               styles/reply-close-highlight
-         :on-press            #(re-frame/dispatch [:chat.ui/cancel-message-reply])
-         :accessibility-label :cancel-message-reply}
-        [react/view {}
-         [icons/icon :icons/close {:style styles/reply-close-icon}]]]])))
 
 (views/defview chat-text-input [chat-id input-text]
   (views/letsubs [inp-ref (atom nil)
@@ -285,11 +258,17 @@
 (views/defview chat-view []
   (views/letsubs [{:keys [input-text chat-id] :as current-chat} [:chats/current-chat]]
     [react/view {:style styles/chat-view}
-     [toolbar-chat-view current-chat]
+     #_[toolbar-chat-view current-chat]
      [react/view {:style styles/separator}]
-     [messages-view current-chat]
-     [react/view {:style styles/separator}]
-     [reply-message-view]
+     [react/view {:flex 1
+                  :flex-direction :column}
+      [messages-view current-chat]
+      [react/touchable-highlight {:style {:height 60
+                                          :background-color colors/blue}
+                                  :on-press #()}
+       [react/text {:style {:font-size 14
+                            :color colors/white}}
+        "See replies"]]]
      [chat-text-input chat-id input-text]]))
 
 (views/defview chat-profile []

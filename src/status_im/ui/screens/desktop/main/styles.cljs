@@ -6,7 +6,7 @@
    :flex-direction :row})
 
 (def left-sidebar
-  {:width            340
+  {:flex 1
    :background-color colors/white})
 
 (def pane-separator

@@ -10,11 +10,7 @@
 
 (fx/defn navigate-to
   [{:keys [db] :as cofx} tab-name]
-  (navigation/navigate-to-cofx cofx
-                               (if (and (= tab-name :home) (:current-chat-id db))
-                                 :chat
-                                 :home)
-                               nil))
+  (navigation/navigate-to-cofx cofx :home nil))
 
 (fx/defn fetch-desktop-version
   [_ tab-name]

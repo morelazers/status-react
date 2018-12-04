@@ -94,21 +94,15 @@
  (fn [cofx]))
 
 (handlers/register-handler-fx
- :init-chats
- [(re-frame/inject-cofx :web3/get-web3)
-  (re-frame/inject-cofx :data-store/get-all-mailservers)
-  (re-frame/inject-cofx :data-store/transport)
-  (re-frame/inject-cofx :data-store/mailserver-topics)]
- (fn [{:keys [db] :as cofx} [_ address]]
-   (protocol/initialize-protocol cofx address)))
-
-(handlers/register-handler-fx
  :init.callback/account-change-success
  [(re-frame/inject-cofx :web3/get-web3)
   (re-frame/inject-cofx :data-store/get-all-contacts)
   (re-frame/inject-cofx :data-store/get-all-installations)
   (re-frame/inject-cofx :data-store/all-browsers)
   (re-frame/inject-cofx :data-store/all-dapp-permissions)
+  (re-frame/inject-cofx :data-store/get-all-mailservers)
+  (re-frame/inject-cofx :data-store/transport)
+  (re-frame/inject-cofx :data-store/mailserver-topics)
   (re-frame/inject-cofx :data-store/get-messages)
   (re-frame/inject-cofx :data-store/get-messages-user-statuses)]
  (fn [cofx [_ address]]
@@ -610,14 +604,7 @@
 (handlers/register-handler-fx
  :chat.ui/navigate-to-chat
  (fn [cofx [_ chat-id opts]]
-   (chat/navigate-to-chat cofx chat-id opts)))
-
-(handlers/register-handler-fx
- :chat.ui/load-more-messages
- [(re-frame/inject-cofx :data-store/get-chat-messages)
-  (re-frame/inject-cofx :data-store/get-user-statuses)
-  (re-frame/inject-cofx :data-store/get-referenced-messages)]
- (fn [cofx _]))
+   #_(chat/navigate-to-chat cofx chat-id opts)))
 
 (handlers/register-handler-fx
  :chat.ui/start-chat

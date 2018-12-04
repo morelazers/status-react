@@ -298,3 +298,6 @@
 
     (doseq [status @statuses-to-be-deleted]
       (.delete new-realm status))))
+
+(defn v28 [old-realm new-realm]
+  (log/debug "migrating v28 account database"))

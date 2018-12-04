@@ -130,7 +130,6 @@
                                                                   :current-public-key current-public-key
                                                                   :row                message}])
                        :inverted                  true
-                       :onEndReached              #(re-frame/dispatch [:chat.ui/load-more-messages])
                        :enableEmptySections       true
                        :keyboardShouldPersistTaps :handled}])))
 

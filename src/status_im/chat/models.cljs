@@ -210,23 +210,23 @@
 (fx/defn navigate-to-chat
   "Takes coeffects map and chat-id, returns effects necessary for navigation and preloading data"
   [cofx chat-id {:keys [modal? navigation-reset?]}]
-  (cond
-    modal?
-    (fx/merge cofx
-              (navigation/navigate-to-cofx :chat-modal {})
-              (preload-chat-data chat-id))
+  #_(cond
+      modal?
+      (fx/merge cofx
+                (navigation/navigate-to-cofx :chat-modal {})
+                (preload-chat-data chat-id))
 
-    navigation-reset?
-    (fx/merge cofx
-              (navigation/navigate-reset {:index   1
-                                          :actions [{:routeName :home}
-                                                    {:routeName :chat}]})
-              (preload-chat-data chat-id))
+      navigation-reset?
+      (fx/merge cofx
+                (navigation/navigate-reset {:index   1
+                                            :actions [{:routeName :home}
+                                                      {:routeName :chat}]})
+                (preload-chat-data chat-id))
 
-    :else
-    (fx/merge cofx
-              (navigation/navigate-to-cofx :chat {})
-              (preload-chat-data chat-id))))
+      :else
+      (fx/merge cofx
+                (navigation/navigate-to-cofx :chat {})
+                (preload-chat-data chat-id))))
 
 (fx/defn start-chat
   "Start a chat, making sure it exists"

@@ -62,3 +62,19 @@
   (-> v8
       (assoc-in [:properties :raw-payload-hash]
                 {:type :string})))
+
+(def v10 {:name       :message
+          :primaryKey :message-id
+          :properties {:message-id       :string
+                       :from             {:type :string
+                                          :indexed true}
+                       :parent           {:type :string
+                                          :indexed true
+                                          :optional true}
+                       :content          :string
+                       :content-type     :string
+                       :timestamp        :int
+                       :retry-count      {:type    :int
+                                          :default 0}
+                       :message-type     {:type     :string
+                                          :optional true}}})

@@ -240,6 +240,7 @@
                                              [:web3/fetch-node-version-callback %])]
              :notifications/get-fcm-token nil}
             (initialize-account-db address)
+            (protocol/initialize-protocol address)
             (contact/load-contacts)
             (messages.core/load-messages)
             (pairing/load-installations)

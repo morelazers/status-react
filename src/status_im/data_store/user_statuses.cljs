@@ -27,21 +27,6 @@
  (fn [cofx _]
    (assoc cofx :get-messages-user-statuses get-by-messages-ids)))
 
-(defn- get-by-chat-and-messages-ids
-  [chat-id message-ids]
-  (-> @core/account-realm
-      (.objects "user-status")
-      (.filtered (str "chat-id=\"" chat-id "\""
-                      (when (seq message-ids)
-                        (str " and (" (core/in-query "message-id" message-ids) ")"))))
-      (core/all-clj :user-status)
-      prepare-statuses))
-
-(re-frame/reg-cofx
- :data-store/get-user-statuses
- (fn [cofx _]
-   (assoc cofx :get-stored-user-statuses get-by-chat-and-messages-ids)))
-
 (defn- compute-status-id [{:keys [message-id public-key]}]
   (str message-id "-" public-key))
 

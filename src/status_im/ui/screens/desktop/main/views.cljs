@@ -18,8 +18,7 @@
   (views/letsubs [tab [:get-in [:desktop/desktop :tab-view-id]]]
     (let [component (case tab
                       :profile profile.views/profile-data
-                      :home home.views/chat-list-view-wrapper
-                      react/view)]
+                      :home chat.views/chat-view)]
       [react/view {:style {:flex 1}}
        [component]])))
 
@@ -44,9 +43,10 @@
                       :advanced-settings profile.views/advanced-settings
                       :chat-profile chat.views/chat-profile
                       :backup-recovery-phrase profile.views/backup-recovery-phrase
-                      chat.views/chat-view)]
-      [react/view {:style {:flex 1}}
-       [component]])))
+                      nil)]
+      (when component
+        [react/view {:style {:flex 1}}
+         [component]]))))
 
 (views/defview main-views []
   [react/view {:style styles/main-views}

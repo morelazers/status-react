@@ -3,7 +3,8 @@
 
 (re-frame/reg-sub
  ::messages
- (fn [db] (:messages db)))
+ (fn [db]
+   (:messages db)))
 
 (re-frame/reg-sub
  :messages/messages

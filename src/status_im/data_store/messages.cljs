@@ -21,25 +21,7 @@
                       (core/all-clj :message))]
      (map transform-message messages))))
 
-(defn- get-by-chat-id
-  ([chat-id]
-   (get-by-chat-id chat-id 0))
-  ([chat-id from]
-   (let [messages (-> (core/get-by-field @core/account-realm :message :chat-id chat-id)
-                      (core/sorted :timestamp :desc)
-                      (core/page from (+ from constants/default-number-of-messages))
-                      (core/all-clj :message))]
-     (map transform-message messages))))
-
-(defn get-message-id-by-old [old-message-id]
-  (when-let
-   [js-message (core/single
-                (core/get-by-field
-                 @core/account-realm
-                 :message :old-message-id old-message-id))]
-    (aget js-message "message-id")))
-
-(defn- get-references-by-ids
+(defn- get-by-messages-ids
   [message-ids]
   (when (seq message-ids)
     (keep (fn [{:keys [response-to response-to-v2]}]
@@ -63,11 +45,6 @@
  (fn [cofx _]
    (assoc cofx :get-stored-messages get-messages)))
 
-(re-frame/reg-cofx
- :data-store/get-chat-messages
- (fn [cofx _]
-   (assoc cofx :get-stored-chat-messages get-by-chat-id)))
-
 (defn- sha3 [s]
   (.sha3 dependencies/Web3.prototype s))
 
@@ -88,11 +65,10 @@
   "Returns tx function for saving message"
   [{:keys [message-id from] :as message}]
   (fn [realm]
+    (println message)
     (core/create realm
                  :message
-                 (prepare-message (merge default-values
-                                         message
-                                         {:from (or from "anonymous")}))
+                 (prepare-message message)
                  true)))
 
 (defn delete-message-tx
