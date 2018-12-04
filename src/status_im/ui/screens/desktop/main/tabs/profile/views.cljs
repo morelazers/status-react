@@ -110,6 +110,7 @@
   [{:keys [p2p mailserver les whisper], :as metrics}]
   (let [currently-running-services      (keys metrics)
         mailserver-request-process-time (get-in mailserver [:requestProcessTime :Overall])
+        mailserver-request-errors       (get-in mailserver [:requestErrors :Overall])
         les-packets-in                  (get-in les (packet-keys :in))
         les-packets-out                 (get-in les (packet-keys :out))
         p2p-inbound-traffic             (get-in p2p [:InboundTraffic :Overall])
