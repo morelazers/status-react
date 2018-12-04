@@ -197,8 +197,7 @@
           current-address (:address current-account)
           to              (:public-key current-account)
           from            (get-in cofx [:db :push-notifications/stored to])]
-      (when (and from
-                 (= address current-address))
+      (when from
         (handle-push-notification cofx
                                   {:from from
                                    :to   to})))))

@@ -186,6 +186,7 @@
                 pairing/installations status-module-initialized? device-UUID semaphores]
          :node/keys [status]
          :or   {network (get app-db :network)}} db
+        stored-pns      (:push-notifications/stored db)
         current-account (get accounts address)
         account-network-id (get current-account :network network)
         account-network (get-in current-account [:networks account-network-id])]
@@ -201,6 +202,7 @@
                         :network network
                         :chain (ethereum/network->chain-name account-network)
                         :universal-links/url url
+                        :push-notifications/stored stored-pns
                         :peers-summary peers-summary
                         :peers-count peers-count
                         :device-UUID device-UUID
@@ -220,7 +222,6 @@
             {:notifications/request-notifications-permissions nil}
             (navigation/navigate-to-cofx :home nil)
             (universal-links/process-stored-event)
-            (notifications/process-stored-event address)
             (when platform/desktop?
               (chat-model/update-dock-badge-label))
             (accounts.core/show-desktop-alpha-release-warning)))

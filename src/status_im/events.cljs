@@ -110,6 +110,7 @@
    (fx/merge cofx
              {:db (assoc db :chats/loading? false)}
              (chat-loading/initialize-chats)
+             (notifications/process-stored-event address)
              (protocol/initialize-protocol address)
              (chat-loading/initialize-pending-messages))))
 
