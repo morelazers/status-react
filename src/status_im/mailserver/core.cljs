@@ -95,24 +95,6 @@
                db
                mailservers)})
 
-(defn- parse-json
-  ;; NOTE(dmitryn) Expects JSON response like:
-  ;; {"error": "msg"} or {"result": true}
-  [s]
-  (try
-    (let [res (-> s
-                  js/JSON.parse
-                  (js->clj :keywordize-keys true))]
-      ;; NOTE(dmitryn): AddPeer() may return {"error": ""}
-      ;; assuming empty error is a success response
-      ;; by transforming {"error": ""} to {:result true}
-      (if (and (:error res)
-               (= (:error res) ""))
-        {:result true}
-        res))
-    (catch :default e
-      {:error (.-message e)})))
-
 (defn add-peer! [enode]
   (status/add-peer enode
                    (handlers/response-handler #(log/debug "mailserver: add-peer success" %)
