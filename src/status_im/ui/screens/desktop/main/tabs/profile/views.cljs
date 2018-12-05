@@ -102,34 +102,6 @@
       (and peers-disconnected? searching?)               "Disconnected and searching"
       :else                                              "Disconnected")))
 
-(defn packet-keys [direction]
-  {:pre [(#{:in :out} direction)]}
-  [:misc direction :packets :Overall])
-
-(defn bandwidth-success-callback
-  [{:keys [p2p mailserver les whisper], :as metrics}]
-  (let [currently-running-services      (keys metrics)
-        mailserver-request-process-time (get-in mailserver [:requestProcessTime :Overall])
-        mailserver-request-errors       (get-in mailserver [:requestErrors :Overall])
-        les-packets-in                  (get-in les (packet-keys :in))
-        les-packets-out                 (get-in les (packet-keys :out))
-        p2p-inbound-traffic             (get-in p2p [:InboundTraffic :Overall])
-        p2p-outbound-traffic            (get-in p2p [:OutbountTraffic :Overall])]
-    (println metrics)))
-
-(defn bandwidth-metrics []
-  (let [args {:jsonrpc "2.0"
-              :id      2
-              :method  constants/debug-metrics
-              :params  [true]}
-        payload (.stringify js/JSON (clj->js args))]
-    (status/call-private-rpc
-     payload
-     (mailserver.core/response-handler bandwidth-success-callback
-                                       #(println "we did not get the debug metrics" %)))))
-
-;; (bandwidth-metrics)
-
 (views/defview advanced-settings []
   (views/letsubs [installations    [:pairing/installations]
                   current-mailserver-id [:mailserver/current-id]
@@ -194,7 +166,9 @@
                         :value           notifications?
                         :on-value-change #(re-frame/dispatch [:accounts.ui/notifications-enabled (not notifications?)])}]]
         [react/touchable-highlight {:style  (styles/profile-row adv-settings-open?)
-                                    :on-press #(re-frame/dispatch [:navigate-to (if adv-settings-open? :home :advanced-settings)])}
+                                    :on-press #(do
+                                                 (re-frame/dispatch [:navigate-to (if adv-settings-open? :home :advanced-settings)])
+                                                 (re-frame/dispatch [:load-debug-metrics]))}
          [react/view {:style styles/adv-settings}
           [react/text {:style (styles/profile-row-text colors/black)
                        :font  (if adv-settings-open? :medium :default)}
