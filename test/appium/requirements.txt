@@ -49,3 +49,4 @@ yarl==0.12.0
 zbarlight==1.2
 docker
 influxdb
+faker
