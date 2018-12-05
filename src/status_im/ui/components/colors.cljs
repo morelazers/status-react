@@ -31,7 +31,6 @@
 
 ;; ACCENT BLUE
 (def blue "#4360df") ;; Accent blue, used as main wallet color, and ios home add button
-(def blue-transparent-30 (alpha blue 0.3)) ;; Accent blue, used as main wallet color, and ios home add button
 ;; LIGHT BLUE
 (def blue-light "#ECEFFC") ;; Light Blue
 (def gray-background blue-light) ;; TODO (andrey) should be refactored later by Dmitry
