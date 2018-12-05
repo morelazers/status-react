@@ -80,10 +80,8 @@
 (defn- proceed-to-pin-confirmation [fx]
   (assoc-in fx [:db :hardwallet :pin :enter-step] :confirmation))
 
-(defn- pin-match [{:keys [db]}]
-  {:db                   (assoc-in db [:hardwallet :pin :status] :validating)
-   :utils/dispatch-later [{:ms       3000
-                           :dispatch [:hardwallet.callback/on-pin-validated]}]})
+(defn- pin-match [fx]
+  (assoc-in fx [:db :hardwallet :pin :status] :validating))
 
 (defn- pin-mismatch [fx]
   (assoc-in fx [:db :hardwallet :pin] {:status       :error
@@ -194,10 +192,6 @@
            (assoc-in [:hardwallet :setup-step] :error)
            (assoc-in [:hardwallet :return-to-step] :card-ready)
            (assoc-in [:hardwallet :setup-error] error))})
-
-(fx/defn on-pin-validated [{:keys [db] :as cofx}]
-  (let [pin (get-in db [:hardwallet :pin :original])]
-    (fx/merge cofx)))
 
 (fx/defn recovery-phrase-start-confirmation [{:keys [db]}]
   (let [mnemonic (get-in db [:hardwallet :secrets :mnemonic])

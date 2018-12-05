@@ -874,11 +874,6 @@
    (hardwallet/on-generate-and-load-key-error cofx error)))
 
 (handlers/register-handler-fx
- :hardwallet.callback/on-pin-validated
- (fn [cofx _]
-   (hardwallet/on-pin-validated cofx)))
-
-(handlers/register-handler-fx
  :hardwallet.ui/status-hardwallet-option-pressed
  (fn [cofx _]
    (hardwallet/navigate-to-connect-screen cofx)))
