@@ -186,7 +186,6 @@
                 pairing/installations status-module-initialized? device-UUID semaphores]
          :node/keys [status]
          :or   {network (get app-db :network)}} db
-        stored-pns      (:push-notifications/stored db)
         current-account (get accounts address)
         account-network-id (get current-account :network network)
         account-network (get-in current-account [:networks account-network-id])]
@@ -202,7 +201,6 @@
                         :network network
                         :chain (ethereum/network->chain-name account-network)
                         :universal-links/url url
-                        :push-notifications/stored stored-pns
                         :peers-summary peers-summary
                         :peers-count peers-count
                         :device-UUID device-UUID
@@ -217,11 +215,12 @@
             (models.wallet/update-wallet)
             (transactions/start-sync)))
 
-(defn login-only-events [cofx address]
+(defn login-only-events [cofx address stored-pns]
   (fx/merge cofx
             {:notifications/request-notifications-permissions nil}
             (navigation/navigate-to-cofx :home nil)
             (universal-links/process-stored-event)
+            (notifications/process-stored-event address stored-pns)
             (when platform/desktop?
               (chat-model/update-dock-badge-label))
             (accounts.core/show-desktop-alpha-release-warning)))
@@ -234,25 +233,26 @@
      :create-account))
 
 (fx/defn initialize-account [{:keys [db web3] :as cofx} address]
-  (fx/merge cofx
-            {:web3/set-default-account    [web3 address]
-             :web3/fetch-node-version     [web3
-                                           #(re-frame/dispatch
-                                             [:web3/fetch-node-version-callback %])]
-             :notifications/get-fcm-token nil}
-            (initialize-account-db address)
-            (contact/load-contacts)
-            (pairing/load-installations)
-            #(when (dev-mode? %)
-               (models.dev-server/start))
-            (browser/initialize-browsers)
-            (browser/initialize-dapp-permissions)
-            (extensions.registry/initialize)
-            #(when-not platform/desktop?
-               (initialize-wallet %))
-            (accounts.update/update-sign-in-time)
-            #(when-not (creating-account? %)
-               (login-only-events % address))))
+  (let [stored-pns (:push-notifications/stored db)]
+    (fx/merge cofx
+              {:web3/set-default-account    [web3 address]
+               :web3/fetch-node-version     [web3
+                                             #(re-frame/dispatch
+                                               [:web3/fetch-node-version-callback %])]
+               :notifications/get-fcm-token nil}
+              (initialize-account-db address)
+              (contact/load-contacts)
+              (pairing/load-installations)
+              #(when (dev-mode? %)
+                 (models.dev-server/start))
+              (browser/initialize-browsers)
+              (browser/initialize-dapp-permissions)
+              (extensions.registry/initialize)
+              #(when-not platform/desktop?
+                 (initialize-wallet %))
+              (accounts.update/update-sign-in-time)
+              #(when-not (creating-account? %)
+                 (login-only-events % address stored-pns)))))
 
 (re-frame/reg-fx
  :init/init-store

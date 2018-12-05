@@ -110,7 +110,6 @@
    (fx/merge cofx
              {:db (assoc db :chats/loading? false)}
              (chat-loading/initialize-chats)
-             (notifications/process-stored-event address)
              (protocol/initialize-protocol address)
              (chat-loading/initialize-pending-messages))))
 
@@ -770,9 +769,9 @@
 ;; notifications module
 
 (handlers/register-handler-fx
- :notifications/notification-event-received
+ :notifications/notification-open-event-received
  (fn [cofx [_ event]]
-   (notifications/handle-push-notification cofx event)))
+   (notifications/handle-push-notification-open cofx event)))
 
 (handlers/register-handler-fx
  :notifications.callback/get-fcm-token-success
