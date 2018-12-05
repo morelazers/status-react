@@ -5,8 +5,8 @@
             [status-im.constants :as constants]
             [re-frame.core :as re-frame]
             [status-im.native-module.core :as status]
-            [status-im.mailserver.core :as mailserver.core]
             [taoensso.timbre :as log]
+            [status-im.utils.handlers :as handlers]
             [status-im.utils.platform :as platform]))
 
 (fx/defn change-tab
@@ -65,8 +65,8 @@
   "json rpc wrapper for debug metrics; dispatch :debug-metrics-success on success"
   (status/call-private-rpc
    payload
-   (mailserver.core/response-handler #(re-frame/dispatch [:debug-metrics-success %])
-                                     #(log/debug "we did not get the debug metrics" %))))
+   (handlers/response-handler #(re-frame/dispatch [:debug-metrics-success %])
+                              #(log/debug "we did not get the debug metrics" %))))
 
 (handlers/register-handler-fx
  :load-debug-metrics

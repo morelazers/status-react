@@ -95,6 +95,16 @@
      check-spec)
    (re-frame/inject-cofx :now)])
 
+(defn response-handler [success-fn error-fn]
+  (fn handle-response
+    ([response]
+     (let [{:keys [error result]} (parse-json response)]
+       (handle-response error result)))
+    ([error result]
+     (if error
+       (error-fn error)
+       (success-fn result)))))
+
 (defn register-handler-fx
   ([name handler]
    (register-handler-fx name nil handler))

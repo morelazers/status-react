@@ -13,6 +13,7 @@
             [clojure.string :as string]
             [status-im.data-store.mailservers :as data-store.mailservers]
             [status-im.i18n :as i18n]
+            [status-im.utils.handlers :as handlers]
             [status-im.accounts.update.core :as accounts.update]
             [status-im.ui.screens.navigation :as navigation]))
 
@@ -111,21 +112,11 @@
         res))
     (catch :default e
       {:error (.-message e)})))
-;; TODO (rcullito) think about moving this fn to a different ns
-(defn response-handler [success-fn error-fn]
-  (fn handle-response
-    ([response]
-     (let [{:keys [error result]} (parse-json response)]
-       (handle-response error result)))
-    ([error result]
-     (if error
-       (error-fn error)
-       (success-fn result)))))
 
 (defn add-peer! [enode]
   (status/add-peer enode
-                   (response-handler #(log/debug "mailserver: add-peer success" %)
-                                     #(log/error "mailserver: add-peer error" %))))
+                   (handlers/response-handler #(log/debug "mailserver: add-peer success" %)
+                                              #(log/error "mailserver: add-peer error" %))))
 
 (defn remove-peer! [enode]
   (let [args    {:jsonrpc "2.0"
@@ -134,8 +125,8 @@
                  :params  [enode]}
         payload (.stringify js/JSON (clj->js args))]
     (status/call-private-rpc payload
-                             (response-handler #(log/debug "mailserver: remove-peer success" %)
-                                               #(log/error "mailserver: remove-peer error" %)))))
+                             (handlers/response-handler #(log/debug "mailserver: remove-peer success" %)
+                                                        #(log/error "mailserver: remove-peer error" %)))))
 
 (re-frame/reg-fx
  :mailserver/add-peer
