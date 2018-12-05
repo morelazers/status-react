@@ -429,6 +429,113 @@
 
 (declare network-fees)
 
+;; worthy abstraction
+(defn anim-ref-send
+  "Call one of the methods in an animation ref.
+
+Takes an animation ref (a map of keys to animation tiggering methods)
+
+A keyword that should equal one of the keys in the map
+
+and optional args to be sent to the animation.
+
+Example:
+(anim-ref-send slider-ref :open!)
+(anim-ref-send slider-ref :move-top-left! 25 25)"
+  [anim-ref signal & args]
+  (when anim-ref
+    (assert (get anim-ref signal)
+            (str "Key " signal
+                 " was not found in animation ref. Should be in "
+                 (pr-str (keys anim-ref)))))
+  (some-> anim-ref (get signal) (apply args)))
+
+(defn slide-up-modal
+  "Creates a modal that slides up from the bottom of the screen and
+  responds to a swipe down gesture to dismiss 
+   
+  The modal initially renders in the closed position.
+
+  It takes an options map and the react child to be displayed in the
+  modal. 
+
+  The options map takes a single :anim-ref parameter that takes a
+  function that will be called with a map of animation methods.
+
+  This slide-up-modal will callback the `anim-ref` fn and provides a
+  map with 2 animation methods:
+
+  
+
+  :open!  - opens and displays the modal
+  :close! - closes the modal"
+  [{:keys [anim-ref swipe-dismiss?]} children]
+  {:pre [(fn? anim-ref)]}
+  ;; Add swipe down to dissmiss
+  (let [window-height (:height (react/get-dimensions "window") 1000)
+
+        bottom-position  (animation/create-value (- window-height))
+
+        modal-screen-bg-color
+        (animation/interpolate bottom-position
+                               {:inputRange [(- window-height) 0]
+                                :outputRange ["rgba(0,0,0,0)"
+                                              "rgba(0,0,0,0.7)"]})
+        modal-screen-top
+        (animation/interpolate bottom-position
+                               {:inputRange [(- window-height)
+                                             (+ (- window-height) 1)
+                                             0]
+                                :outputRange [window-height -200 -200]})
+
+        vertical-slide-to (fn [view-bottom]
+                            (animation/start
+                             (animation/timing bottom-position {:toValue  view-bottom
+                                                                :duration 500})))
+        open-panel! #(vertical-slide-to 0)
+        close-panel! #(vertical-slide-to (- window-height))
+        ;; swipe-down-panhandler
+        swipe-down-handlers
+        (when swipe-dismiss?
+          (js->clj
+           (.-panHandlers
+            (.create react/pan-responder
+                     #js {:onMoveShouldSetPanResponder
+                          (fn [e g]
+                            (when-let [distance (.-dy g)]
+                              (< 50 distance)))
+                          :onMoveShouldSetPanResponderCapture
+                          (fn [e g]
+                            (when-let [distance (.-dy g)]
+                              (< 50 distance)))
+                          :onPanResponderRelease  (fn [e g]
+                                                    (when-let [distance (.-dy g)]
+                                                      (when (< 200 distance)
+                                                        (close-panel!))))}))))]
+    (anim-ref {:open! open-panel!
+               :close! close-panel!})
+    (fn [{:keys [anim-ref] :as opts} children]
+      [react/animated-view (merge
+                            {:style
+                             {:position :absolute
+                              :top      modal-screen-top
+                              :bottom   0
+                              :left     0
+                              :right    0
+                              :z-index  1
+                              :background-color modal-screen-bg-color}}
+                            swipe-down-handlers)
+       [react/touchable-highlight {:on-press (fn [] (close-panel!))
+                                   :style {:flex 1}}
+        [react/view]]
+       [react/animated-view {:style
+                             {:position :absolute
+                              :left     0
+                              :right    0
+                              :z-index  2
+                              :bottom   bottom-position}}
+        children]])))
+
 (defn advanced-gas-panel-action [{:keys [label active on-press icon]} child]
   {:pre [label (boolean? active) on-press icon]}
   [react/view {:style {:flex-direction :row
@@ -454,69 +561,86 @@
    [react/view {:flex 1}]
    child])
 
-(defn- advanced-gas-edit-slide-open [{:keys [on-gas-input-change
-                                             on-gas-price-input-change
-                                             gas-input
-                                             gas-price-input]}]
-  [react/view {:style {:padding-horizontal 22
-                       :padding-vertical 11}}
-   [react/text "Gas price"]
-   [react/view {:style {:border-radius 8
-                        :background-color colors/gray-light
-                        :padding-vertical 16
-                        :padding-horizontal 16
-                        :flex-direction :row
-                        :align-items :flex-end
-                        :margin-vertical 7}}
-    [react/text-input {:keyboard-type :numeric
-                       :on-change-text on-gas-price-input-change
-                       :value gas-price-input
-                       :style {:font-size 15
-                               :flex 1}}]
-    [react/text "Gwei"]]
-   [react/text {:style {:color colors/gray
-                        :font-size 12}}
-    "Gas price is the amount you are willing to pay per unit of gas. Increasing this price may help your transaction get processed faster."]
-   [react/text {:style {:margin-top 22}} "Gas limit"]
-   [react/view {:style {:border-radius 8
-                        :background-color colors/gray-light
-                        :padding-vertical 16
-                        :padding-horizontal 16
-                        :flex-direction :row
-                        :align-items :flex-end
-                        :margin-vertical 7}}
-    [react/text-input {:keyboard-type :numeric
-                       :on-change-text on-gas-input-change
-                       :value gas-input
-                       :style {:font-size 15
-                               :flex 1}}]]
-   [react/text {:style {:color colors/gray
-                        :font-size 12}}
-    "Gas limit is the maximum units of gas you're willing to spend on this transaction."]])
+(defn- advanced-gas-edit [{:keys [on-gas-input-change
+                                  on-gas-price-input-change
+                                  gas-input
+                                  gas-price-input]}]
+  (let [gas-error (reagent/atom nil)
+        gas-price-error (reagent/atom nil)]
+    (fn [{:keys [on-gas-input-change
+                 on-gas-price-input-change
+                 gas-input
+                 gas-price-input]}]
+      [react/view {:style {:padding-horizontal 22
+                           :padding-vertical 11}}
+       [react/text "Gas price"]
+       (when @gas-price-error
+         [react/view {:style {:z-index 100}}
+          [tooltip/tooltip @gas-price-error
+           {:color        colors/blue-light
+            :font-size    12
+            :bottom-value -3}]])
+       [react/view {:style {:border-radius 8
+                            :background-color colors/gray-light
+                            :padding-vertical 16
+                            :padding-horizontal 16
+                            :flex-direction :row
+                            :align-items :flex-end
+                            :margin-vertical 7}}
+        [react/text-input {:keyboard-type :numeric
+                           :on-change-text (fn [x]
+                                             (if-not (money/bignumber x)
+                                               (reset! gas-price-error "Invalid number format")
+                                               (reset! gas-price-error nil))
+                                             (on-gas-price-input-change x))
+                           :value gas-price-input
+                           :style {:font-size 15
+                                   :flex 1}}]
+        [react/text "Gwei"]]
+       [react/text {:style {:color colors/gray
+                            :font-size 12}}
+        "Gas price is the amount you are willing to pay per unit of gas. Increasing this price may help your transaction get processed faster."]
+       [react/text {:style {:margin-top 22}} "Gas limit"]
+       (when @gas-error
+         [react/view {:style {:z-index 100}}
+          [tooltip/tooltip @gas-error
+           {:color        colors/blue-light
+            :font-size    12
+            :bottom-value -3}]])
+       [react/view {:style {:border-radius 8
+                            :background-color colors/gray-light
+                            :padding-vertical 16
+                            :padding-horizontal 16
+                            :flex-direction :row
+                            :align-items :flex-end
+                            :margin-vertical 7}}
+        [react/text-input {:keyboard-type :numeric
+                           :on-change-text
+                           (fn [x]
+                             (if-not (money/bignumber x)
+                               (reset! gas-error "Invalid number format")
+                               (reset! gas-error nil))
+                             (on-gas-input-change x))
+                           :value gas-input
+                           :style {:font-size 15
+                                   :flex 1}}]]
+       [react/text {:style {:color colors/gray
+                            :font-size 12}}
+        "Gas limit is the maximum units of gas you're willing to spend on this transaction."]])))
 
 ;; TODOs
-;; - move the slider animation up to the parent view
 ;; - add stronger validation and a tool tip for bad input
 ;; - ensure that gas passed back to teh parent view is correct
 ;; - wire in gas and gas-price to the parent view
 
 ;; Choosing the gas amount
-(defn advanced-gas-input-panel [{:keys [gas gas-price gas-gas-price->fiat on-submit]}]
+(defn advanced-gas-input-panel [{:keys [gas gas-price
+                                        optimal-gas optimal-gas-price
+                                        gas-gas-price->fiat on-submit] :as opts}]
   (let [state-atom    (reagent.core/atom {:optimal-focus true
                                           :gas-input nil
                                           :gas-price-input nil})
-        ;; main open and close animations
-        bottom-value  (animation/create-value -250)
-        opacity-value (animation/create-value 0)
-        bottom-opacity (fn [bottom opacity]
-                         (animation/start
-                          (animation/parallel
-                           [(animation/timing opacity-value {:toValue  opacity
-                                                             :duration 500})
-                            (animation/timing bottom-value {:toValue  bottom
-                                                            :duration 500})])))
-        open-panel! #(bottom-opacity 0 1)
-        close-panel! #(bottom-opacity -250 0)
+
         ;; slider animations
         slider-height (animation/create-value 0)
         slider-height-to #(animation/start
@@ -524,111 +648,108 @@
                                                             :duration 500}))
         open-slider!  #(slider-height-to 290)
         close-slider! #(slider-height-to 0)]
-    (reagent.core/create-class
-     {:component-did-mount open-panel!
-      :reagent-render
-      (fn [{:keys [gas gas-price gas-gas-price->fiat on-submit]}]
-        [react/animated-view {:style
-                              {:position :absolute
-                               :left     0
-                               :right    0
-                               :bottom   bottom-value}}
-         [react/animated-view {:style
-                               {:opacity            opacity-value
-                                :border-top-left-radius 8
-                                :border-top-right-radius 8
-                                :background-color   colors/white}}
-                                        ;top 
-          [react/view {:style {:justify-content :center
-                               :padding-top 22
-                               :padding-bottom 7}}
-           [react/text
-            {:style {:color colors/black
-                     :font-size 22
-                     :line-height 28
-                     :font-weight :bold
-                     :text-align :center}}
-            "Network fee settings"]
-           [react/text
-            {:style {:color colors/gray
-                     :font-size 15
-                     :line-height 22
-                     :text-align :center
-                     :padding-horizontal 45
-                     :padding-vertical 8}}
-            "This fee, known as gas is paid directly to the Ethereum network. Status does not collect any of these funds"]]
-          [react/view {:style {:border-top-width 1
-                               :border-top-color colors/black-transparent
-                               :padding-top 11
-                               :padding-bottom 7}}
+    (fn [{:keys [gas gas-price gas-gas-price->fiat on-submit]}]
+      [react/view {:style {:background-color colors/white
+                           :border-top-left-radius 8
+                           :border-top-right-radius 8}}
+       [react/view {:style {:justify-content :center
+                            :padding-top 22
+                            :padding-bottom 7}}
+        [react/text
+         {:style {:color colors/black
+                  :font-size 22
+                  :line-height 28
+                  :font-weight :bold
+                  :text-align :center}}
+         "Network fee settings"]
+        [react/text
+         {:style {:color colors/gray
+                  :font-size 15
+                  :line-height 22
+                  :text-align :center
+                  :padding-horizontal 45
+                  :padding-vertical 8}}
+         "This fee, known as gas is paid directly to the Ethereum network. Status does not collect any of these funds"]]
+       [react/view {:style {:border-top-width 1
+                            :border-top-color colors/black-transparent
+                            :padding-top 11
+                            :padding-bottom 7}}
                                         ;label fiat-gas-price active on-press icon
-           (advanced-gas-panel-action
-            {:icon :icons/time
-             :label "Optimal"
-             :on-press (fn []
-                         (close-slider!)
-                         (swap! state-atom assoc :optimal-focus true))
-             :active  (:optimal-focus @state-atom)}
-            [react/text {:style {:color colors/gray
-                                 :font-size 17
-                                 :padding-left 17
-                                 :line-height 20}}
-             (str "~ $" (gas-gas-price->fiat gas gas-price))])
-           (advanced-gas-panel-action
-            {:icon :icons/sliders
-             :label "Advanced"
-             :on-press (fn []
-                         (open-slider!)
-                         (swap! state-atom assoc :optimal-focus false))
-             :active (not (:optimal-focus @state-atom))}
-            [react/text {:style {:color colors/gray
-                                 :font-size 17
-                                 :padding-left 17
-                                 :line-height 20
-                                 :text-align :center
-                                 :min-width 60}}
-             (if (not (:optimal-focus @state-atom))
-               (str "~ $" (gas-gas-price->fiat
-                           (if (not (string/blank? (:gas-input @state-atom)))
-                             (money/bignumber (:gas-input @state-atom))
-                             gas)
-                           (if (not (string/blank? (:gas-price-input @state-atom)))
-                             (money/->wei :gwei (:gas-price-input @state-atom))
-                             gas-price)))
-               (str "..."))])
-           [react/animated-view {:style {:background-color colors/white
-                                         :height slider-height
-                                         :overflow :hidden}}
-            [advanced-gas-edit-slide-open {:state-atom state-atom
-                                           :on-gas-price-input-change
-                                           #(swap! state-atom assoc :gas-price-input %)
-                                           :on-gas-input-change
-                                           #(swap! state-atom assoc :gas-input %)
-                                           :gas-price-input
-                                           (or (:gas-price-input @state-atom)
-                                               (str (money/wei-> :gwei gas-price)))
-                                           :gas-input
-                                           (or (:gas-input @state-atom) (str gas))}]]
-           [react/view {:style {:flex-direction :row
-                                :justify-content :center
-                                :padding-vertical 16}}
-            [react/touchable-highlight
-             {:on-press (fn []
-                          (close-panel!)
-                          (on-submit {:gas (if (not (string/blank? (:gas-input @state-atom)))
-                                             (money/bignumber (:gas-input @state-atom))
-                                             gas)
-                                      :gas-input (if (not (string/blank? (:gas-price-input @state-atom)))
-                                                   (money/->wei :gwei (:gas-price-input @state-atom))
-                                                   gas-price)}))
-              :style {:padding-horizontal 39
-                      :padding-vertical 12
-                      :border-radius 8
-                      :background-color colors/blue-light}}
-             [react/text {:style {:font-size 15
-                                  :line-height 22
-                                  :color colors/blue}}
-              "Update"]]]]]])})))
+        (advanced-gas-panel-action
+         {:icon :icons/time
+          :label "Optimal"
+          :on-press (fn []
+                      (close-slider!)
+                      (swap! state-atom assoc :optimal-focus true))
+          :active  (:optimal-focus @state-atom)}
+         [react/text {:style {:color colors/gray
+                              :font-size 17
+                              :padding-left 17
+                              :line-height 20}}
+          (str "~ $" (gas-gas-price->fiat optimal-gas optimal-gas-price))])
+        (advanced-gas-panel-action
+         {:icon :icons/sliders
+          :label "Advanced"
+          :on-press (fn []
+                      (open-slider!)
+                      (swap! state-atom assoc :optimal-focus false))
+          :active (not (:optimal-focus @state-atom))}
+         [react/text {:style {:color colors/gray
+                              :font-size 17
+                              :padding-left 17
+                              :line-height 20
+                              :text-align :center
+                              :min-width 60}}
+          (if (not (:optimal-focus @state-atom))
+            (str "~ $" (gas-gas-price->fiat
+                        (if (not (string/blank? (:gas-input @state-atom)))
+                          (money/bignumber (:gas-input @state-atom))
+                          gas)
+                        (if (not (string/blank? (:gas-price-input @state-atom)))
+                          (money/->wei :gwei (:gas-price-input @state-atom))
+                          gas-price)))
+            (str "..."))])
+        [react/animated-view {:style {:background-color colors/white
+                                      :height slider-height
+                                      :overflow :hidden}}
+         [advanced-gas-edit
+          {:state-atom state-atom
+           :on-gas-price-input-change
+           #(when (money/bignumber %)
+              (swap! state-atom assoc :gas-price-input %))
+           :on-gas-input-change
+           #(when (money/bignumber %)
+              (swap! state-atom assoc :gas-input %))
+           :gas-price-input
+           (or (:gas-price-input @state-atom)
+               (str (money/wei-> :gwei gas-price)))
+           :gas-input
+           (or (:gas-input @state-atom) (str gas))}]]
+        [react/view {:style {:flex-direction :row
+                             :justify-content :center
+                             :padding-vertical 16}}
+         [react/touchable-highlight
+          {:on-press (fn []
+                       (on-submit
+                        (if (:optimal-focus @state-atom)
+                          {:gas optimal-gas :gas-price optimal-gas-price}
+                          {:gas
+                           (or (when-not (string/blank? (:gas-input @state-atom))
+                                 (money/bignumber (:gas-input @state-atom)))
+                               optimal-gas)
+                           :gas-price
+                           (or
+                            (when-not (string/blank? (:gas-price-input @state-atom))
+                              (money/->wei :gwei (:gas-price-input @state-atom)))
+                            optimal-gas-price)})))
+           :style {:padding-horizontal 39
+                   :padding-vertical 12
+                   :border-radius 8
+                   :background-color colors/blue-light}}
+          [react/text {:style {:font-size 15
+                               :line-height 22
+                               :color colors/blue}}
+           "Update"]]]]])))
 
 ;; Choosing the asset
 
@@ -814,14 +935,20 @@
   (let [tx-atom (reagent/atom transaction)
         token (or (fetch-token all-tokens network (:symbol @tx-atom))
                   native-currency)
-        state-atom (reagent/atom (create-initial-state token (:amount @tx-atom)))]
+        ;; This informs the optimal gas prices and needs to be from the original source
+        orig-gas       (:gas transaction)
+        orig-gas-price (:gas-price transaction)
+        state-atom (reagent/atom (create-initial-state token (:amount @tx-atom)))
+        network-fees-modal-ref (atom nil)
+        open-network-fees! #(anim-ref-send @network-fees-modal-ref :open!)
+        close-network-fees! #(anim-ref-send @network-fees-modal-ref :close!)]
     (fn [{:keys [balance network prices fiat-currency
                  native-currency all-tokens modal? transaction]}]
       (let [{:keys [symbol to] :or {symbol (:symbol native-currency)} :as transaction} @tx-atom
             token (-> (tokens/asset-for all-tokens (ethereum/network->chain-keyword network) symbol)
                       (assoc :amount (get balance symbol (money/bignumber 0))))
             gas-gas-price->fiat
-            (fn [gas gas-price] (network-fees prices token fiat-currency (max-fee gas gas-price)))]
+            (fn [gas' gas-price'] (network-fees prices token fiat-currency (max-fee gas' gas-price')))]
         [wallet.components/simple-screen {:avoid-keyboard? (not modal?)
                                           :status-bar-type (if modal? :modal-wallet :wallet)}
          [toolbar modal? "Send amount"]
@@ -831,6 +958,19 @@
                  input-symbol (input-currency-symbol state token fiat-currency)
                  converted-phrase (converted-currency-phrase state token fiat-currency prices)]
              [react/view {:flex 1}
+              ;; network fees modal
+              [slide-up-modal {:anim-ref #(reset! network-fees-modal-ref %)
+                               :swipe-dismiss? true}
+               [advanced-gas-input-panel
+                {:on-submit (fn [{:keys [gas gas-price]}]
+                              (assert (and gas gas-price))
+                              (swap! tx-atom assoc :gas gas :gas-price gas-price)
+                              (close-network-fees!))
+                 :gas (:gas @tx-atom)
+                 :gas-price (:gas-price @tx-atom)
+                 :optimal-gas orig-gas
+                 :optimal-gas-price orig-gas-price
+                 :gas-gas-price->fiat gas-gas-price->fiat}]]
               [react/touchable-highlight {:style {:background-color colors/black-transparent}
                                           :on-press #(re-frame/dispatch
                                                       [:navigate-to
@@ -882,7 +1022,7 @@
                                      :color "rgb(143,162,234)"}}
                  converted-phrase]]
                [react/view {:justify-content :center :flex-direction :row}
-                [react/touchable-highlight {:on-press #(toggle-edit-gas state-atom)
+                [react/touchable-highlight {:on-press open-network-fees!
                                             :style {:background-color colors/black-transparent
                                                     :padding-horizontal 13
                                                     :padding-vertical 7
@@ -924,7 +1064,7 @@
 
                                      #_(prn (money/bignumber amount) (money/wei->ether (:amount token)))
                                      #_(if-let [new-amount (money/bignumber amount)]
-                                       ;; look at sufficient funds and sufficient gas for this 
+                                         ;; look at sufficient funds and sufficient gas for this 
                                          (if (.greaterThanOrEqualTo new-amount (money/wei->ether (:amount token)))
                                            (do 'good) ;; Move onto overview after adding amount to tx
                                            (reset! error-message "Insufficient funds"))
@@ -932,14 +1072,7 @@
                    [react/text {:style {:color (if disabled? colors/white colors/blue)
                                         :font-size 15
                                         :line-height 22}}
-                    (i18n/label :t/next)]])]
-               (when (:edit-gas state)
-                 [advanced-gas-input-panel
-                  {:on-submit (fn [{:keys [gas gas-price]}]
-                                (swap! state-atom assoc :edit-gas false))
-                   :gas (:gas @tx-atom)
-                   :gas-price (:gas-price @tx-atom)
-                   :gas-gas-price->fiat gas-gas-price->fiat}])]]))]))))
+                    (i18n/label :t/next)]])]]]))]))))
 
 (defview choose-amount-token []
   (letsubs [{:keys [transaction modal? native-currency]} [:get-screen-params :wallet-choose-amount]
