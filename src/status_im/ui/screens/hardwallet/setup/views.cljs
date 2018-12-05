@@ -261,7 +261,7 @@
        [react/text {:style styles/center-text}
         (i18n/label :t/something-went-wrong)]
        [react/text {:style styles/center-text}
-        error]]]
+        (str (:code error) "\n" (:error error))]]]
      [react/touchable-highlight
       {:on-press #(re-frame/dispatch [:hardwallet.ui/error-button-pressed])}
       [react/view styles/bottom-button-container

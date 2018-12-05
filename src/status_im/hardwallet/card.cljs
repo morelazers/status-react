@@ -8,6 +8,10 @@
 (defonce keycard (.-default js-dependencies/status-keycard))
 (defonce event-emitter (.-DeviceEventEmitter js-dependencies/react-native))
 
+(defn- error-object->map [object]
+  {:code  (.-code object)
+   :error (.-message object)})
+
 (defn check-nfc-support []
   (when config/hardwallet-enabled?
     (.. keycard
@@ -48,7 +52,7 @@
   (.. keycard
       getApplicationInfo
       (then #(re-frame/dispatch [:hardwallet.callback/on-get-application-info-success %]))
-      (catch #(re-frame/dispatch [:hardwallet.callback/on-get-application-info-error (str %)]))))
+      (catch #(re-frame/dispatch [:hardwallet.callback/on-get-application-info-error (error-object->map %)]))))
 
 (defn start []
   (when config/hardwallet-enabled?
@@ -62,7 +66,7 @@
     (.. keycard
         installAppletAndInitCard
         (then #(re-frame/dispatch [:hardwallet.callback/on-install-applet-and-init-card-success %]))
-        (catch #(re-frame/dispatch [:hardwallet.callback/on-install-applet-and-init-card-error (str %)])))))
+        (catch #(re-frame/dispatch [:hardwallet.callback/on-install-applet-and-init-card-error (error-object->map %)])))))
 
 (defn pair
   [{:keys [password]}]
@@ -70,15 +74,14 @@
     (.. keycard
         (pair password)
         (then #(re-frame/dispatch [:hardwallet.callback/on-pairing-success %]))
-        (catch #(re-frame/dispatch [:hardwallet.callback/on-pairing-error (str %)])))))
-
+        (catch #(re-frame/dispatch [:hardwallet.callback/on-pairing-error (error-object->map %)])))))
 (defn generate-mnemonic
   [{:keys [pairing]}]
   (when pairing
     (.. keycard
         (generateMnemonic pairing)
         (then #(re-frame/dispatch [:hardwallet.callback/on-generate-mnemonic-success %]))
-        (catch #(re-frame/dispatch [:hardwallet.callback/on-generate-mnemonic-error (str %)])))))
+        (catch #(re-frame/dispatch [:hardwallet.callback/on-generate-mnemonic-error (error-object->map %)])))))
 
 (defn generate-and-load-key
   [{:keys [mnemonic pairing pin]}]
@@ -86,4 +89,4 @@
     (.. keycard
         (generateAndLoadKey mnemonic pairing pin)
         (then #(re-frame/dispatch [:hardwallet.callback/on-generate-and-load-key-success %]))
-        (catch #(re-frame/dispatch [:hardwallet.callback/on-generate-and-load-key-error (str %)])))))
+        (catch #(re-frame/dispatch [:hardwallet.callback/on-generate-and-load-key-error (error-object->map %)])))))
