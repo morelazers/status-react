@@ -41,8 +41,8 @@
    :margin-bottom    20})
 
 (def phone-nfc-on-image
-  {:width  301
-   :height 205})
+  {:width  401
+   :height 250})
 
 (def phone-nfc-off-image
   {:width  301
@@ -55,11 +55,17 @@
    :line-height  20
    :margin-right 40})
 
+(def nfc-enabled-container
+  {:flex-direction  :column
+   :justify-content :space-between
+   :align-items     :center
+   :margin-top      50})
+
 (def nfc-disabled-container
   {:flex-direction  :column
    :justify-content :space-between
    :align-items     :center
-   :margin-top      100})
+   :margin-top      120})
 
 (def nfc-icon
   {:margin-left 52

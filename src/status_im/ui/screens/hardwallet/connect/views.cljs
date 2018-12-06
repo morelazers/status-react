@@ -12,16 +12,14 @@
             [status-im.ui.components.colors :as colors]))
 
 (defn nfc-enabled []
-  [react/touchable-highlight
-   {:on-press #(re-frame/dispatch [:hardwallet.ui/hold-card-button-pressed])}
-   [react/view styles/nfc-disabled-container
-    [react/view
-     [react/image {:source (:hold-card-animation resources/ui)
-                   :style  styles/phone-nfc-on-image}]]
-    [react/view styles/turn-nfc-text-container
-     [react/text {:style           styles/status-hardwallet-text
-                  :number-of-lines 2}
-      (i18n/label :t/hold-card)]]]])
+  [react/view styles/nfc-enabled-container
+   [react/view
+    [react/image {:source (:hold-card-animation resources/ui)
+                  :style  styles/phone-nfc-on-image}]]
+   [react/view styles/turn-nfc-text-container
+    [react/text {:style           styles/status-hardwallet-text
+                 :number-of-lines 2}
+     (i18n/label :t/hold-card)]]])
 
 (defn nfc-disabled []
   [react/view styles/nfc-disabled-container
@@ -40,7 +38,9 @@
   (letsubs [nfc-enabled? [:hardwallet/nfc-enabled?]]
     [react/view styles/container
      [status-bar/status-bar]
-     [react/view components.styles/flex
+     [react/view {:flex            1
+                  :flex-direction  :column
+                  :justify-content :space-between}
       [toolbar/toolbar {}
        toolbar/default-nav-back
        nil]
