@@ -438,7 +438,7 @@
 (declare network-fees)
 
 ;; worthy abstraction
-(defn anim-ref-send
+(defn- anim-ref-send
   "Call one of the methods in an animation ref.
 
 Takes an animation ref (a map of keys to animation tiggering methods)
@@ -458,7 +458,7 @@ Example:
                  (pr-str (keys anim-ref)))))
   (some-> anim-ref (get signal) (apply args)))
 
-(defn slide-up-modal
+(defn- slide-up-modal
   "Creates a modal that slides up from the bottom of the screen and
   responds to a swipe down gesture to dismiss 
    
@@ -467,13 +467,14 @@ Example:
   It takes an options map and the react child to be displayed in the
   modal. 
 
-  The options map takes a single :anim-ref parameter that takes a
-  function that will be called with a map of animation methods.
+  Options:
+    :anim-ref - takes a function that will be called with a map of
+        animation methods.
+    :swipe-dismiss? - a boolean that determines wether the modal screen
+        should be dismissed on swipe down gesture
 
   This slide-up-modal will callback the `anim-ref` fn and provides a
   map with 2 animation methods:
-
-  
 
   :open!  - opens and displays the modal
   :close! - closes the modal"
@@ -544,35 +545,38 @@ Example:
                               :bottom   bottom-position}}
         children]])))
 
-(defn advanced-gas-panel-action [{:keys [label active on-press icon]} child]
-  {:pre [label (boolean? active) on-press icon]}
+(defn- custom-gas-panel-action [{:keys [label active on-press icon background-color]} child]
+  {:pre [label (boolean? active) on-press icon background-color]}
   [react/view {:style {:flex-direction :row
                        :padding-horizontal 22
                        :padding-vertical 11
                        :align-items :center}}
    [react/touchable-highlight
-    {:underlay-color (if active colors/blue-light colors/white)
-     :disabled active
+    {:disabled active
+     :on-press on-press}
+    [react/animated-view {:style {:border-radius 21
+                                  :width 40
+                                  :height 40
+                                  :justify-content :center
+                                  :align-items :center
+                                  :background-color background-color}}
+     [vector-icons/icon icon {:color (if active colors/white colors/gray)}]]]
+   [react/touchable-highlight
+    {:disabled active
      :on-press on-press
-     :style {:border-radius 21
-             :width 40
-             :height 40
-             :background-color (if active colors/blue colors/gray-light)
-             :justify-content :center
-             :align-items :center}}
-    [vector-icons/icon icon {:color (if active colors/white colors/gray)}]]
-   [react/text {:style {:color colors/black
-                        :font-size 17
-                        :padding-left 17
-                        :line-height 20}}
-    label]
-   [react/view {:flex 1}]
+     :style {:flex 1}}
+    [react/text {:style {:color colors/black
+                         :font-size 17
+                         :padding-left 17
+                         :line-height 40}}
+     label]]
    child])
 
-(defn- advanced-gas-edit [{:keys [on-gas-input-change
-                                  on-gas-price-input-change
-                                  gas-input
-                                  gas-price-input]}]
+(defn- custom-gas-edit
+  [{:keys [on-gas-input-change
+           on-gas-price-input-change
+           gas-input
+           gas-price-input]}]
   (let [gas-error (reagent/atom nil)
         gas-price-error (reagent/atom nil)]
     (fn [{:keys [on-gas-input-change
@@ -596,6 +600,7 @@ Example:
                             :align-items :flex-end
                             :margin-vertical 7}}
         [react/text-input {:keyboard-type :numeric
+                           :placeholder "0"
                            :on-change-text (fn [x]
                                              (if-not (money/bignumber x)
                                                (reset! gas-price-error "Invalid number format")
@@ -623,6 +628,7 @@ Example:
                             :align-items :flex-end
                             :margin-vertical 7}}
         [react/text-input {:keyboard-type :numeric
+                           :placeholder "0"
                            :on-change-text
                            (fn [x]
                              (if-not (money/bignumber x)
@@ -637,127 +643,155 @@ Example:
         "Gas limit is the maximum units of gas you're willing to spend on this transaction."]])))
 
 ;; TODOs
+
 ;; - add stronger validation and a tool tip for bad input
 ;; - ensure that gas passed back to teh parent view is correct
 ;; - wire in gas and gas-price to the parent view
 
-;; Choosing the gas amount
-(defn advanced-gas-input-panel [{:keys [gas gas-price
+(defn custom-gas-derived-state [{:keys [gas-input gas-price-input custom-open?]}
+                                {:keys [custom-gas custom-gas-price
                                         optimal-gas optimal-gas-price
-                                        gas-gas-price->fiat on-submit] :as opts}]
-  (let [state-atom    (reagent.core/atom {:optimal-focus true
-                                          :gas-input nil
-                                          :gas-price-input nil})
+                                        gas-gas-price->fiat] :as opts}]
+  (let [custom-input-gas
+        (or (when (not (string/blank? gas-input))
+              (money/bignumber gas-input))
+            custom-gas
+            optimal-gas)
+        custom-input-gas-price
+        (or (when (not (string/blank? gas-price-input))
+              (money/->wei :gwei gas-price-input))
+            custom-gas-price
+            optimal-gas-price)]
+    {:optimal-fiat-price
+     (str "~ $" (gas-gas-price->fiat optimal-gas optimal-gas-price))
+     :custom-fiat-price
+     (if custom-open?
+       (str "~ $" (gas-gas-price->fiat custom-input-gas custom-input-gas-price))
+       (str "..."))
+     :gas-price-input-value
+     (str (or gas-price-input
+              (some->> custom-gas-price (money/wei-> :gwei))
+              (some->> optimal-gas-price (money/wei-> :gwei))))
+     :gas-input-value
+     (str (or gas-input custom-gas optimal-gas))
+     :gas-map-for-submit
+     (if custom-open?
+       {:gas optimal-gas :gas-price optimal-gas-price}
+       {:gas custom-input-gas :gas-price custom-input-gas-price})}))
+
+;; Choosing the gas amount
+(defn custom-gas-input-panel [{:keys [custom-gas custom-gas-price
+                                      optimal-gas optimal-gas-price
+                                      gas-gas-price->fiat on-submit] :as opts}]
+  {:pre [optimal-gas optimal-gas-price gas-gas-price->fiat on-submit]}
+  (let [custom-open? (and custom-gas custom-gas-price)
+        state-atom   (reagent.core/atom {:custom-open? (boolean custom-open?)
+                                         :gas-input nil
+                                         :gas-price-input nil})
 
         ;; slider animations
-        slider-height (animation/create-value 0)
+        slider-height (animation/create-value (if custom-open? 290 0))
         slider-height-to #(animation/start
                            (animation/timing slider-height {:toValue  %
                                                             :duration 500}))
-        open-slider!  #(slider-height-to 290)
-        close-slider! #(slider-height-to 0)]
-    (fn [{:keys [gas gas-price gas-gas-price->fiat on-submit]}]
-      [react/view {:style {:background-color colors/white
-                           :border-top-left-radius 8
-                           :border-top-right-radius 8}}
-       [react/view {:style {:justify-content :center
-                            :padding-top 22
-                            :padding-bottom 7}}
-        [react/text
-         {:style {:color colors/black
-                  :font-size 22
-                  :line-height 28
-                  :font-weight :bold
-                  :text-align :center}}
-         "Network fee settings"]
-        [react/text
-         {:style {:color colors/gray
-                  :font-size 15
-                  :line-height 22
-                  :text-align :center
-                  :padding-horizontal 45
-                  :padding-vertical 8}}
-         "This fee, known as gas is paid directly to the Ethereum network. Status does not collect any of these funds"]]
-       [react/view {:style {:border-top-width 1
-                            :border-top-color colors/black-transparent
-                            :padding-top 11
-                            :padding-bottom 7}}
-                                        ;label fiat-gas-price active on-press icon
-        (advanced-gas-panel-action
-         {:icon :icons/time
-          :label "Optimal"
-          :on-press (fn []
-                      (close-slider!)
-                      (swap! state-atom assoc :optimal-focus true))
-          :active  (:optimal-focus @state-atom)}
-         [react/text {:style {:color colors/gray
-                              :font-size 17
-                              :padding-left 17
-                              :line-height 20}}
-          (str "~ $" (gas-gas-price->fiat optimal-gas optimal-gas-price))])
-        (advanced-gas-panel-action
-         {:icon :icons/sliders
-          :label "Advanced"
-          :on-press (fn []
-                      (open-slider!)
-                      (swap! state-atom assoc :optimal-focus false))
-          :active (not (:optimal-focus @state-atom))}
-         [react/text {:style {:color colors/gray
-                              :font-size 17
-                              :padding-left 17
-                              :line-height 20
-                              :text-align :center
-                              :min-width 60}}
-          (if (not (:optimal-focus @state-atom))
-            (str "~ $" (gas-gas-price->fiat
-                        (if (not (string/blank? (:gas-input @state-atom)))
-                          (money/bignumber (:gas-input @state-atom))
-                          gas)
-                        (if (not (string/blank? (:gas-price-input @state-atom)))
-                          (money/->wei :gwei (:gas-price-input @state-atom))
-                          gas-price)))
-            (str "..."))])
-        [react/animated-view {:style {:background-color colors/white
-                                      :height slider-height
-                                      :overflow :hidden}}
-         [advanced-gas-edit
-          {:state-atom state-atom
-           :on-gas-price-input-change
-           #(when (money/bignumber %)
-              (swap! state-atom assoc :gas-price-input %))
-           :on-gas-input-change
-           #(when (money/bignumber %)
-              (swap! state-atom assoc :gas-input %))
-           :gas-price-input
-           (or (:gas-price-input @state-atom)
-               (str (money/wei-> :gwei gas-price)))
-           :gas-input
-           (or (:gas-input @state-atom) (str gas))}]]
-        [react/view {:style {:flex-direction :row
-                             :justify-content :center
-                             :padding-vertical 16}}
-         [react/touchable-highlight
-          {:on-press (fn []
-                       (on-submit
-                        (if (:optimal-focus @state-atom)
-                          {:gas optimal-gas :gas-price optimal-gas-price}
-                          {:gas
-                           (or (when-not (string/blank? (:gas-input @state-atom))
-                                 (money/bignumber (:gas-input @state-atom)))
-                               optimal-gas)
-                           :gas-price
-                           (or
-                            (when-not (string/blank? (:gas-price-input @state-atom))
-                              (money/->wei :gwei (:gas-price-input @state-atom)))
-                            optimal-gas-price)})))
-           :style {:padding-horizontal 39
-                   :padding-vertical 12
-                   :border-radius 8
-                   :background-color colors/blue-light}}
-          [react/text {:style {:font-size 15
-                               :line-height 22
-                               :color colors/blue}}
-           "Update"]]]]])))
+
+        optimal-button-bg-color
+        (animation/interpolate slider-height
+                               {:inputRange [0 200 290]
+                                :outputRange [colors/blue colors/gray-light colors/gray-light]})
+
+        custom-button-bg-color
+        (animation/interpolate slider-height
+                               {:inputRange [0 200 290]
+                                :outputRange [colors/gray-light colors/blue colors/blue]})
+
+        open-slider!  #(do
+                         (slider-height-to 290)
+                         (swap! state-atom assoc :custom-open? true))
+        close-slider! #(do
+                         (slider-height-to 0)
+                         (swap! state-atom assoc :custom-open? false))]
+    (fn [opts]
+      (let [{:keys [optimal-fiat-price
+                    custom-fiat-price
+                    gas-price-input-value
+                    gas-input-value
+                    gas-map-for-submit]}
+            (custom-gas-derived-state @state-atom opts)]
+        [react/view {:style {:background-color colors/white
+                             :border-top-left-radius 8
+                             :border-top-right-radius 8}}
+         [react/view {:style {:justify-content :center
+                              :padding-top 22
+                              :padding-bottom 7}}
+          [react/text
+           {:style {:color colors/black
+                    :font-size 22
+                    :line-height 28
+                    :font-weight :bold
+                    :text-align :center}}
+           "Network fee settings"]
+          [react/text
+           {:style {:color colors/gray
+                    :font-size 15
+                    :line-height 22
+                    :text-align :center
+                    :padding-horizontal 45
+                    :padding-vertical 8}}
+           "This fee, known as gas is paid directly to the Ethereum network. Status does not collect any of these funds"]]
+         [react/view {:style {:border-top-width 1
+                              :border-top-color colors/black-transparent
+                              :padding-top 11
+                              :padding-bottom 7}}
+          (custom-gas-panel-action
+           {:icon :icons/time
+            :label "Optimal"
+            :on-press close-slider!
+            :background-color optimal-button-bg-color
+            :active  (not (:custom-open? @state-atom))}
+           [react/text {:style {:color colors/gray
+                                :font-size 17
+                                :padding-left 17
+                                :line-height 20}}
+            optimal-fiat-price])
+          (custom-gas-panel-action
+           {:icon :icons/sliders
+            :label "Custom"
+            :on-press open-slider!
+            :background-color custom-button-bg-color
+            :active (:custom-open? @state-atom)}
+           [react/text {:style {:color colors/gray
+                                :font-size 17
+                                :padding-left 17
+                                :line-height 20
+                                :text-align :center
+                                :min-width 60}}
+            custom-fiat-price])
+          [react/animated-view {:style {:background-color colors/white
+                                        :height slider-height
+                                        :overflow :hidden}}
+           [custom-gas-edit
+            {:on-gas-price-input-change
+             #(when (money/bignumber %)
+                (swap! state-atom assoc :gas-price-input %))
+             :on-gas-input-change
+             #(when (money/bignumber %)
+                (swap! state-atom assoc :gas-input %))
+             :gas-price-input gas-price-input-value
+             :gas-input gas-input-value}]]
+          [react/view {:style {:flex-direction :row
+                               :justify-content :center
+                               :padding-vertical 16}}
+           [react/touchable-highlight
+            {:on-press #(on-submit gas-map-for-submit)
+             :style {:padding-horizontal 39
+                     :padding-vertical 12
+                     :border-radius 8
+                     :background-color colors/blue-light}}
+            [react/text {:style {:font-size 15
+                                 :line-height 22
+                                 :color colors/blue}}
+             "Update"]]]]]))))
 
 ;; Choosing the asset
 
@@ -820,9 +854,6 @@ Example:
            " "
            (wallet.utils/display-symbol token))]]]
    list/item-icon-forward])
-
-#_(defn conversion [value from-symbol price currency]
-    (money/internal->formatted value from-symbol))
 
 ;; TODOs
 ;; consistent input validation throughout looking at wallet.db/parse-amount
@@ -936,27 +967,37 @@ Example:
   (some-> (token->fiat-conversion prices token fiat-currency gas-ether-price)
           (money/with-precision 2)))
 
-(defn choose-amount-token-helper [{:keys [balance network prices fiat-currency
-                                          native-currency all-tokens modal? transaction]}]
-  {:pre [(map? native-currency)]}
+;; TODO derived state
 
+;; !!! only send gas and gas-price in a transaction if they are custom gas prices!!!
+(defn choose-amount-token-helper [{:keys [balance network prices fiat-currency
+                                          native-currency
+                                          all-tokens
+                                          modal?
+                                          transaction]}]
+  {:pre [(map? native-currency)]}
   (let [tx-atom (reagent/atom transaction)
         token (or (fetch-token all-tokens network (:symbol @tx-atom))
                   native-currency)
-        ;; This informs the optimal gas prices and needs to be from the original source
-        orig-gas       (:gas transaction)
-        orig-gas-price (:gas-price transaction)
+        optimal-gas-price-atom (reagent/atom nil)
         state-atom (reagent/atom (create-initial-state token (:amount @tx-atom)))
         network-fees-modal-ref (atom nil)
         open-network-fees! #(anim-ref-send @network-fees-modal-ref :open!)
         close-network-fees! #(anim-ref-send @network-fees-modal-ref :close!)]
+    ;; initialize the starting gas price
+    (ethereum/gas-price (:web3 @re-frame.db/app-db)
+                        (fn [_ gas-price]
+                          (when gas-price
+                            (reset! optimal-gas-price-atom gas-price))))
     (fn [{:keys [balance network prices fiat-currency
                  native-currency all-tokens modal? transaction]}]
       (let [{:keys [symbol to] :or {symbol (:symbol native-currency)} :as transaction} @tx-atom
             token (-> (tokens/asset-for all-tokens (ethereum/network->chain-keyword network) symbol)
                       (assoc :amount (get balance symbol (money/bignumber 0))))
+            optimal-gas (ethereum/estimate-gas symbol)
             gas-gas-price->fiat
-            (fn [gas' gas-price'] (network-fees prices token fiat-currency (max-fee gas' gas-price')))]
+            (fn [gas' gas-price']
+              (network-fees prices token fiat-currency (max-fee gas' gas-price')))]
         [wallet.components/simple-screen {:avoid-keyboard? (not modal?)
                                           :status-bar-type (if modal? :modal-wallet :wallet)}
          [toolbar modal? "Send amount"]
@@ -967,18 +1008,19 @@ Example:
                  converted-phrase (converted-currency-phrase state token fiat-currency prices)]
              [react/view {:flex 1}
               ;; network fees modal
-              [slide-up-modal {:anim-ref #(reset! network-fees-modal-ref %)
-                               :swipe-dismiss? true}
-               [advanced-gas-input-panel
-                {:on-submit (fn [{:keys [gas gas-price]}]
-                              (assert (and gas gas-price))
-                              (swap! tx-atom assoc :gas gas :gas-price gas-price)
-                              (close-network-fees!))
-                 :gas (:gas @tx-atom)
-                 :gas-price (:gas-price @tx-atom)
-                 :optimal-gas orig-gas
-                 :optimal-gas-price orig-gas-price
-                 :gas-gas-price->fiat gas-gas-price->fiat}]]
+              (when @optimal-gas-price-atom
+                [slide-up-modal {:anim-ref #(reset! network-fees-modal-ref %)
+                                 :swipe-dismiss? true}
+                 [custom-gas-input-panel
+                  {:on-submit (fn [{:keys [gas gas-price]}]
+                                #_(assert (and gas gas-price))
+                                (swap! tx-atom assoc :gas gas :gas-price gas-price)
+                                (close-network-fees!))
+                   :custom-gas          (:gas @tx-atom)
+                   :custom-gas-price    (:gas-price @tx-atom)
+                   :optimal-gas         optimal-gas
+                   :optimal-gas-price   @optimal-gas-price-atom
+                   :gas-gas-price->fiat gas-gas-price->fiat}]])
               [react/touchable-highlight {:style {:background-color colors/black-transparent}
                                           :on-press #(re-frame/dispatch
                                                       [:navigate-to
@@ -1040,8 +1082,12 @@ Example:
                  [react/text {:style {:color colors/white
                                       :font-size 15
                                       :line-height 22}}
+
                   (str "network fee ~ "
-                       (gas-gas-price->fiat (:gas @tx-atom) (:gas-price @tx-atom))
+                       (when @optimal-gas-price-atom
+                         (gas-gas-price->fiat
+                          (:gas @tx-atom optimal-gas)
+                          (:gas-price @tx-atom @optimal-gas-price-atom)))
                        " "
                        (:code fiat-currency))]]]
                [react/view {:flex 1}]
@@ -1129,7 +1175,8 @@ Example:
             all-tokens     [:wallet/all-tokens]
             contacts       [:contacts/all-added-people-contacts]]
     [send-transaction-view {:modal?         false
-                            :transaction    transaction
+                            ;; TODO only send gas and gas-price when they are custom
+                            :transaction    (dissoc transaction :gas :gas-price)
                             :scroll         scroll
                             :advanced?      advanced?
                             :network        network
