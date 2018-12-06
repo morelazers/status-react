@@ -44,9 +44,9 @@ void ReportPublisher::restartAndQuit() {
     appPath = fullPath.left(fullPath.indexOf(bundleExtension) +
                             bundleExtension.size());
   }
-  QString cmd = QString("open %1").arg(appPath);
+  QString cmd = QString("open \"%1\"").arg(appPath);
 #else
-  QString cmd = appPath;
+  QString cmd = QString("\"%1\"").arg(appPath);;
 #endif
 
   QProcess::startDetached(cmd);
@@ -61,8 +61,8 @@ void ReportPublisher::showDirectory() {
   if (!m_logFilesPrepared) {
     m_logFilesPrepared = prepareReportFiles(dataStoragePath);
   }
-  QDesktopServices::openUrl(
-      QUrl("file://" + dataStoragePath, QUrl::TolerantMode));
+
+  QDesktopServices::openUrl(QUrl::fromLocalFile(dataStoragePath));
 }
 
 bool ReportPublisher::prepareReportFiles(QString reportDirPath) {
@@ -101,5 +101,5 @@ QString ReportPublisher::resolveDataStoragePath() {
   if (!dir.exists()) {
     dir.mkpath(".");
   }
-  return dataStoragePath;
+  return dir.path();
 }
