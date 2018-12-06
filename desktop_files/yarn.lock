@@ -4499,7 +4499,7 @@ glogg@^1.0.0:
   dependencies:
     sparkles "^1.0.0"
 
-"google-breakpad@git+https://github.com/status-im/google-breakpad.git":
+"google-breakpad@git+https://github.com/status-im/google-breakpad.git#windows-support":
   version "1.0.0"
   resolved "git+https://github.com/status-im/google-breakpad.git#9fcfdc23010ce2b0742d276e2959ab13e7cf0dc7"
 
