@@ -22,6 +22,10 @@ def slackNotify(message, color = 'good') {
 }
 
 def buildClojureScript() {
+  /* disable logs for desktop builds when releasing */
+  if (params.BUILD_TYPE == 'release') {
+    env.STATUS_NO_LOGGING = 1
+  }
   sh 'make prod-build-desktop'
   sh './scripts/build-desktop.sh buildClojureScript'
 }

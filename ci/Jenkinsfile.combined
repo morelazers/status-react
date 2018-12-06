@@ -26,42 +26,15 @@ pipeline {
     }
     stage('Build') {
       parallel {
-        stage('MacOS') { steps {
-          script {
-            if (btype == 'release') {
-               withEnv(['STATUS_NO_LOGGING=1']) {
-                 osx = cmn.buildBranch('status-react/combined/desktop-macos')
-               }
-            }
-            else {
-              osx = cmn.buildBranch('status-react/combined/desktop-macos')
-            }
-          }
-        } }
-        stage('Linux') { steps {
-          script {
-            if (btype == 'release') {
-               withEnv(['STATUS_NO_LOGGING=1']) {
-                 nix = cmn.buildBranch('status-react/combined/desktop-linux')
-               }
-            }
-            else {
-              nix = cmn.buildBranch('status-react/combined/desktop-linux')
-            }
-          }
-        } }
-        stage('Windows') { steps {
-          script {
-            if (btype == 'release') {
-               withEnv(['STATUS_NO_LOGGING=1']) {
-                 win = cmn.buildBranch('status-react/combined/desktop-windows')
-               }
-            }
-            else {
-              win = cmn.buildBranch('status-react/combined/desktop-windows')
-            }
-          }
-        } }
+        stage('MacOS') { steps { script {
+          osx = cmn.buildBranch('status-react/combined/desktop-macos')
+        } } }
+        stage('Linux') { steps { script {
+          nix = cmn.buildBranch('status-react/combined/desktop-linux')
+        } } }
+        stage('Windows') { steps { script {
+          win = cmn.buildBranch('status-react/combined/desktop-windows')
+        } } }
         stage('iOS') { steps { script {
           ios = cmn.buildBranch('status-react/combined/mobile-ios')
         } } }
