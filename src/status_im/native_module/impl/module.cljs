@@ -153,3 +153,7 @@
 (defn is24Hour []
   (when status
     (.-is24Hour status)))
+
+(defn update-mailservers [enodes on-result]
+  (when status
+    (call-module #(.updateMailservers status enodes on-result))))

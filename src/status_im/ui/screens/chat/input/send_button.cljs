@@ -14,20 +14,20 @@
        (animation/timing spin-value {:toValue  to-spin-value
                                      :duration 300})))))
 
-(defn sendable? [input-text offline?]
+(defn sendable? [input-text disconnected?]
   (let [trimmed (string/trim input-text)]
     (not (or (string/blank? trimmed)
              (= trimmed "/")
-             offline?))))
+             disconnected?))))
 
 (defview send-button-view []
   (letsubs [{:keys [command-completion]}            [:chats/selected-chat-command]
             {:keys [input-text seq-arg-input-text]} [:chats/current-chat]
-            offline?                                [:offline?]
+            disconnected?                           [:disconnected?]
             spin-value                              (animation/create-value 1)]
     {:component-did-update (send-button-view-on-update {:spin-value         spin-value
                                                         :command-completion command-completion})}
-    (when (and (sendable? input-text offline?)
+    (when (and (sendable? input-text disconnected?)
                (or (not command-completion)
                    (#{:complete :less-than-needed} command-completion)))
       [react/touchable-highlight {:on-press #(re-frame/dispatch [:chat.ui/send-current-message])}

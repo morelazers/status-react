@@ -291,8 +291,8 @@
 ;;;; Send message
 
 (fx/defn send
-  [{{:keys [network-status]} :db :as cofx} chat-id message-id send-record]
-  (if (= network-status :offline)
+  [{{:keys [peers-count]} :db :as cofx} chat-id message-id send-record]
+  (if (zero? peers-count)
     {:dispatch-later [{:ms       10000
                        :dispatch [:message/update-message-status chat-id message-id :not-sent]}]}
     (let [wrapped-record (if (= (:message-type send-record) :group-user-message)
