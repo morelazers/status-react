@@ -307,7 +307,15 @@
                                                      #(re-frame/dispatch [:navigate-to
                                                                           :recipient-qr-code
                                                                           {:on-recipient
-                                                                           (fn [])}])
+                                                                           (fn [qr-data]
+                                                                             (let [{:keys [chain-id] :as tx-data} (events/extract-qr-code-details chain qr-data)
+                                                                                   {:keys [to]} (events/qr-data->transaction-data tx-data)]
+                                                                               (if (= (:chain-id tx-data)
+                                                                                      (ethereum/chain-keyword->chain-id chain))
+                                                                                 (reset! address to)
+                                                                                 (utils/show-popup (i18n/label :t/error)
+                                                                                                   (i18n/label :t/wallet-invalid-chain-id {:data  qr-data
+                                                                                                                                           :chain chain-id})))))}])
                                                      :on-denied
                                                      #(utils/set-timeout
                                                        (fn []

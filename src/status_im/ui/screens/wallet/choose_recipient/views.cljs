@@ -44,9 +44,10 @@
   (int (* 2 (/ (min height width) 3))))
 
 (defview choose-recipient []
-  (letsubs [read-once?        (atom false)
-            dimensions        [:dimensions/window]
-            camera-flashlight [:wallet.send/camera-flashlight]]
+  (letsubs [read-once?             (atom false)
+            dimensions             [:dimensions/window]
+            camera-flashlight      [:wallet.send/camera-flashlight]
+            {:keys [on-recipient]} [:get-screen-params :recipient-qr-code]]
     [react/view {:style styles/qr-code}
      [status-bar/status-bar {:type :transparent}]
      [toolbar-view camera-flashlight]
@@ -63,7 +64,8 @@
                        :torchMode     (camera/set-torch camera-flashlight)
                        :onBarCodeRead #(when-not @read-once?
                                          (reset! read-once? true)
-                                         (re-frame/dispatch [:wallet/fill-request-from-url (camera/get-qr-code-data %) :qr]))}]]
+                                         (on-recipient (camera/get-qr-code-data %))
+                                         (re-frame/dispatch [:navigate-back]))}]]
       [viewfinder dimensions (size dimensions)]]
      [bottom-buttons/bottom-button
       [button/button {:disabled?           false
