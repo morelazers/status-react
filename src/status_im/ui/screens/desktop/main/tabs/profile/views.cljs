@@ -102,6 +102,36 @@
       (and peers-disconnected? searching?)               "Disconnected and searching"
       :else                                              "Disconnected")))
 
+(defn connection-statistics-display
+  [{:keys [mailserver-request-process-time
+           mailserver-request-errors
+           les-packets-in
+           les-packets-out
+           p2p-inbound-traffic
+           p2p-outbound-traffic]}]
+  [react/view {:style {:flex-direction :row}}
+   [react/view
+    [react/text {:style styles/connection-stats-title}
+     "Mailserver requests"]
+    [react/text {:style styles/connection-stats-entry}
+     (str "errors " p2p-inbound-traffic)]
+    [react/text {:style styles/connection-stats-entry}
+     (str "process time " p2p-outbound-traffic)]]
+   [react/view
+    [react/text {:style styles/connection-stats-title}
+     "p2p traffic"]
+    [react/text {:style styles/connection-stats-entry}
+     (str "inbound " p2p-inbound-traffic)]
+    [react/text {:style styles/connection-stats-entry}
+     (str "outbound " p2p-outbound-traffic)]]
+   [react/view
+    [react/text {:style styles/connection-stats-title}
+     "LES packets"]
+    [react/text {:style styles/connection-stats-entry}
+     (str "inbound " les-packets-in)]
+    [react/text {:style styles/connection-stats-entry}
+     (str "outbound " les-packets-out)]]])
+
 (views/defview advanced-settings []
   (views/letsubs [installations    [:pairing/installations]
                   current-mailserver-id [:mailserver/current-id]
@@ -109,6 +139,7 @@
                   mailserver-state      [:mailserver/state]
                   node-status           [:node-status]
                   peers-count           [:peers-count]
+                  connection-stats      [:connection-stats]
                   disconnected          [:disconnected?]]
     (let [render-fn (offline-messaging.views/render-row current-mailserver-id)
           connection-message      (connection-status peers-count node-status mailserver-state disconnected)]
@@ -126,7 +157,9 @@
           [react/view {:style {:margin-vertical 8}}
            [render-fn mailserver]])]
        (when (config/pairing-enabled? true)
-         (installations-section installations))])))
+         (installations-section installations))
+       [react/view {:style styles/title-separator}]
+       (connection-statistics-display connection-stats)])))
 
 (views/defview backup-recovery-phrase []
   [profile.recovery/backup-seed])
