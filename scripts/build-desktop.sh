@@ -21,9 +21,6 @@ else
   COMPILE_FLAGS="-DCMAKE_CXX_FLAGS:='-DBUILD_FOR_BUNDLE=1 -DSTATUS_NO_LOGGING=1'"
 fi
 
-echo "COMPILE FLAGS: "
-echo "$COMPILE_FLAGS"
-
 external_modules_dir=( \
   'node_modules/react-native-i18n/desktop' \
   'node_modules/react-native-config/desktop' \
