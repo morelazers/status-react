@@ -265,8 +265,19 @@ int main(int argc, char **argv) {
   Q_INIT_RESOURCE(react_resources);
 
   loadFontsFromResources();
-
+#ifdef STATUS_NO_LOGGING
+  QLoggingCategory::setFilterRules("UIManager=false\n"
+                                     "Flexbox=false\n"
+                                     "WebSocketModule=false\n"
+                                     "Networking=false\n"
+                                     "ViewManager=false\n"
+                                     "RCTNotification=false\n"
+                                     "default=false\n"
+                                     "RCTStatus=false\n"
+                                     "jsserver=false\n");
+#else
   QLoggingCategory::setFilterRules(QStringLiteral("UIManager=false\nFlexbox=false\nViewManager=false\nNetworking=false\nWebSocketModule=false"));
+#endif
 
   if (redirectLogIntoFile()) {
     qInstallMessageHandler(saveMessage);
@@ -529,6 +540,7 @@ void appendConsoleString(const QString &msg) {
 
 void saveMessage(QtMsgType type, const QMessageLogContext &context,
                  const QString &msg) {
+
   Q_UNUSED(context);
   QByteArray localMsg = msg.toLocal8Bit();
   QString message = localMsg + "\n";
