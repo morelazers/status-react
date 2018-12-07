@@ -18,18 +18,20 @@
         (core/realm-obj->clj :message)
         transform-message)))
 
-(defn get-parent-tree [messages message-id]
-  (if-let [message (when-not (get messages message-id)
-                     (get-by-message-id message-id))]
-    (cond-> (assoc messages message-id message)
-      (:parent message)
-      (get-parent-tree messages (:parent message)))
-    messages))
+(defn get-parent-tree [messages message-id parent-id]
+  (if (get messages parent-id)
+    (update-in messages [parent-id :children] conj message-id)
+    (if-let [message (get-by-message-id parent-id)]
+      (cond-> (assoc messages parent-id
+                     (assoc message :children [message-id]))
+        (:parent message)
+        (get-parent-tree messages parent-id (:parent message)))
+      messages)))
 
 (defn get-parents [messages]
   (reduce (fn [acc [message-id {:keys [parent]}]]
             (if parent
-              (get-parent-tree acc message-id)
+              (get-parent-tree acc message-id parent)
               acc))
           messages
           messages))

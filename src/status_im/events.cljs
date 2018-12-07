@@ -716,6 +716,11 @@
  (fn [cofx [_ message-id]]
    (messages.core/message-seen cofx message-id)))
 
+(handlers/register-handler-fx
+ :messages/set-current-message-id
+ (fn [{:keys [db]} [_ message-id]]
+   {:db (assoc db :current-message-id message-id)}))
+
 ;; signal module
 
 (handlers/register-handler-fx

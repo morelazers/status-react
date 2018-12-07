@@ -82,6 +82,7 @@
   StatusMessage
   (send [this chat-id {:keys [message-id] :as cofx}]
     (let [dev-mode?          (get-in cofx [:db :account/account :dev-mode?])
+          message-type       :public-group-user-message
           current-public-key (accounts.db/current-public-key cofx)
           params             {:chat-id       chat-id
                               :payload       this

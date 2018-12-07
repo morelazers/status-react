@@ -144,10 +144,11 @@
   (println "mess" message-text current-chat-id response-id)
   (when-not (string/blank? message-text)
     (chat.message/send-message cofx {:chat-id      current-chat-id
+                                     :message-type :public-group-user-message
                                      :content-type constants/content-type-text
-                                     :content      (cond-> {:chat-id current-chat-id
-                                                            :response-to-v2 response-id
-                                                            :text    message-text})})))
+                                     :content      {:chat-id current-chat-id
+                                                    :response-to-v2 response-id
+                                                    :text message-text}})))
 
 (fx/defn send-current-message
   "Sends message from current chat input"

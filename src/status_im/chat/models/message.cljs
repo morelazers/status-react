@@ -44,10 +44,7 @@
   (let [emoji? (message-content/emoji-only-content? content)
         parent? (:response-to-v2 content)
         chat-id (:chat-id content)]
-    ;; TODO janherich: enable the animations again once we can do them more efficiently
-    (cond-> (assoc message
-                   :appearing? true
-                   :tags {chat-id [from]})
+    (cond-> (assoc-in message [:content :tags] {chat-id [from]})
 
       emoji?
       (assoc :content-type constants/content-type-emoji)
@@ -90,6 +87,13 @@
      :body        (str body-first-line (:text content))
      :prioritary? (not (chat-model/multi-user-chat? cofx chat-id))}))
 
+(defn update-parent
+  [db {:keys [parent message-id]}]
+  (if (and parent
+           (get-in db [:messages parent]))
+    (update-in db [:messages parent :children] conj message-id)
+    db))
+
 (fx/defn add-message
   [{:keys [db] :as cofx} {:keys [chat-id message-id clock-value timestamp content from] :as message}]
   (let [current-public-key (accounts.db/current-public-key cofx)
@@ -103,7 +107,9 @@
       (let [{:keys [title body prioritary?]} (build-desktop-notification cofx message)]
         (.sendNotification react/desktop-notification title body prioritary?)))
     (fx/merge cofx
-              {:db (assoc-in db [:messages message-id] prepared-message)
+              {:db (-> db
+                       (update-parent prepared-message)
+                       (assoc-in [:messages message-id] prepared-message))
                :data-store/tx [(messages-store/save-message-tx prepared-message)]})))
 
 (fx/defn send-message-seen
@@ -197,7 +203,6 @@
     (let [wrapped-record (if (= (:message-type send-record) :group-user-message)
                            (wrap-group-message cofx chat-id send-record)
                            send-record)]
-
       (protocol/send wrapped-record chat-id cofx))))
 
 (defn add-message-type [message {:keys [chat-id group-chat public?]}]

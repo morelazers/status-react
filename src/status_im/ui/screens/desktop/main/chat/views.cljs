@@ -242,47 +242,37 @@
                 :font :medium} tag]])
 
 (defn messages-view
-  [messages current-path reply?]
-  (let [top-parent? (= 1 (count @current-path))
-        {:keys [message-id children content] :as message-obj} (get-in messages @current-path)]
-    (println message-obj)
-    [react/view {:flex 1
-                 :flex-direction :row}
-     (when (pos-int? (last @current-path))
-       [button/primary-button {:style {:flex 1}
-                               :on-press #(do
-                                            (re-frame/dispatch [:message/seen message-id])
-                                            (swap! current-path dec-last))}
-        (str "Previous " (peek @current-path))])
-     [react/view {:flex 1
-                  :flex-direction :column}
-      (when-not top-parent?
-        [button/primary-button {:flex 1
-                                :on-press #(do
-                                             (re-frame/dispatch [:message/seen message-id])
-                                             (swap! current-path (comp pop pop)))} "Parent"])
-      [tag-view  (:chat-id content) {}]
-      [react/view {:style {:flex 1}}
-       ^{:key message-id}
+  [{:keys [children-fn parent-fn next-sibling-fn previous-sibling-fn next-siblings previous-siblings parent children message-id content] :as message-obj} reply?]
+  [react/view {:flex 1
+               :flex-direction :row}
+   (when previous-sibling-fn
+     [button/primary-button {:style {:flex 1}
+                             :on-press previous-sibling-fn}
+      (str "Previous " (count previous-siblings))])
+   [react/view {:flex 1
+                :flex-direction :column}
+    (when parent-fn
+      [button/primary-button {:flex 1
+                              :on-press parent-fn} "Parent"])
+    [tag-view  (:chat-id content) {}]
+    [react/view {:style {:flex 1}}
+     ^{:key message-id}
 
-       [message (:text content) false message-obj]]
-      [chat-text-input (:chat-id content) message-id]
-      (when children
-        [button/primary-button {:flex 1
-                                :on-press  #(swap! current-path conj :children 0)}
-         (str "see " (childs message-obj) " replies")])]
-     (when (< (last @current-path)
-              (dec (count (get-in messages (pop @current-path)))))
-       [button/primary-button {:style {:flex 1}
-                               :on-press #(do
-                                            #_(re-frame/dispatch [:message/seen message-id])
-
-                                            (swap! current-path inc-last))} (str "Next " (- (count (get-in messages (pop @current-path))) (peek @current-path) 1))])]))
+     [message (:text content) false message-obj]]
+    [chat-text-input (:chat-id content) message-id]
+    (when children-fn
+      [button/primary-button {:flex 1
+                              :on-press children-fn}
+       (str "see " (count children) " replies")])]
+   (when next-sibling-fn
+     [button/primary-button {:style {:flex 1}
+                             :on-press next-sibling-fn}
+      (str "Next " (count next-siblings))])])
 
 (views/defview chat-view []
-  (views/letsubs [messages [:messages/roots3]]
+  (views/letsubs [message [:messages/current-message]]
     [react/view {:style styles/chat-view}
      [react/view {:style styles/separator}]
      [react/view {:flex 1
                   :flex-direction :column}
-      [messages-view  messages (reagent/atom [0]) (reagent/atom false)]]]))
+      [messages-view message (reagent/atom false)]]]))
