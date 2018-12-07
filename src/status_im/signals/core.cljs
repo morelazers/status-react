@@ -12,7 +12,8 @@
 
 (fx/defn status-node-started
   [{db :db :as cofx}]
-  (let [{:node/keys [restart? address]} db
+  (let [{:node/keys [restart? address on-ready]
+         :accounts/keys [create]} db
         can-login? (and (not restart?)
                         (:password (accounts.db/credentials cofx)))]
     (fx/merge cofx
@@ -23,14 +24,14 @@
               (when restart?
                 (node/initialize address))
               (when can-login?
-                (accounts.login/login)))))
+                (accounts.login/login))
+              (when (= :create-account on-ready)
+                (fn [_]
+                  {:accounts.create/create-account (:password create)})))))
 
 (fx/defn status-node-stopped
-  [{db :db :as cofx}]
-  (let [{:keys [address]} (accounts.db/credentials cofx)]
-    (fx/merge cofx
-              {:db (assoc db :node/status :stopped)}
-              (node/start address))))
+  [{db :db}]
+  {:db (assoc db :node/status :stopped)})
 
 (fx/defn status-module-initialized [{:keys [db]}]
   {:db                             (assoc db :status-module-initialized? true)

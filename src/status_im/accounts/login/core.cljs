@@ -40,10 +40,13 @@
   (let [{:keys [address password save-password?]} (accounts.db/credentials cofx)]
     {:accounts.login/login [address password save-password?]}))
 
-(fx/defn user-login [{:keys [db] :as cofx}]
+(fx/defn user-login [{:keys [db] :as cofx} init-node?]
   (fx/merge cofx
-            {:db (assoc-in db [:accounts/login :processing] true)}
-            (node/initialize (get-in db [:accounts/login :address]))))
+            {:db (-> db
+                     (assoc-in [:accounts/login :processing] true)
+                     (assoc :node/on-ready :login))}
+            (when init-node?
+              (node/initialize (get-in db [:accounts/login :address])))))
 
 (fx/defn user-login-callback
   [{db :db :as cofx} login-result]
@@ -79,7 +82,7 @@
     (fx/merge cofx
               {:db (assoc-in db [:accounts/login :password] password)}
               (navigation/navigate-to-cofx :progress nil)
-              (user-login))
+              (user-login true))
     (navigation/navigate-to-clean cofx :login nil)))
 
 (re-frame/reg-fx

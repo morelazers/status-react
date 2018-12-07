@@ -181,6 +181,7 @@
 
 (handlers/register-handler-fx
  :accounts.create.ui/next-step-pressed
+ [(re-frame/inject-cofx :random-guid-generator)]
  (fn [cofx [_ step password password-confirm]]
    (accounts.create/next-step cofx step password password-confirm)))
 
@@ -257,7 +258,7 @@
 (handlers/register-handler-fx
  :accounts.login.ui/password-input-submitted
  (fn [cofx _]
-   (accounts.login/user-login cofx)))
+   (accounts.login/user-login cofx true)))
 
 (handlers/register-handler-fx
  :accounts.login.callback/login-success
@@ -283,6 +284,7 @@
 
 (handlers/register-handler-fx
  :accounts.logout.ui/logout-confirmed
+ [(re-frame/inject-cofx :data-store/get-all-accounts)]
  (fn [cofx _]
    (accounts.logout/logout cofx)))
 
@@ -290,6 +292,7 @@
 
 (handlers/register-handler-fx
  :accounts.update.callback/save-settings-success
+ [(re-frame/inject-cofx :data-store/get-all-accounts)]
  (fn [cofx _]
    (accounts.logout/logout cofx)))
 
