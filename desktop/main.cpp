@@ -265,9 +265,6 @@ int main(int argc, char **argv) {
     qInstallMessageHandler(saveMessage);
   }
 
-  int* crash_p = nullptr;
-  *crash_p = 123;
-
 #ifdef BUILD_FOR_BUNDLE
   if (!runNodeJsServer()) {
     if (g_nodeJsServerProcess->state() == QProcess::NotRunning) {
