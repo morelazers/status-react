@@ -10,9 +10,9 @@
 (def min-input-area-height 20)
 (def max-input-area-height (- max-input-container-height (* 2 chat-vertical-padding)))
 
-(defn message-row [{:keys [outgoing first-in-group?] :as message}]
+(defn message-row [{:keys [outgoing] :as message}]
   (let [padding-horizontal (if outgoing :padding-right :padding-left)
-        padding-top-value (if first-in-group? 16 8)]
+        padding-top-value 16]
     {padding-horizontal 24
      :padding-top       padding-top-value}))
 
@@ -45,18 +45,17 @@
   {:color       colors/gray
    :font-size   14})
 
-(defn chat-box [height]
-  {:height            (+ height (* 2 chat-vertical-padding))
-   :min-height        min-input-container-height
+(def chat-box
+  {:min-height        min-input-container-height
    :max-height        max-input-container-height
    :padding-vertical  chat-vertical-padding
    :flex-direction    :row
    :overflow          :hidden})
 
-(defn chat-text-input [container-height]
-  {:height            container-height
-   :min-height        min-input-area-height
+(def chat-text-input
+  {:min-height        min-input-area-height
    :max-height        max-input-area-height
+   :height 180
    :margin-left       20
    :margin-right      22
    :flex              1

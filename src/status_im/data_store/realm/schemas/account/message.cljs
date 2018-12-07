@@ -71,6 +71,10 @@
                        :parent           {:type :string
                                           :indexed true
                                           :optional true}
+                       :seen             {:type :bool
+                                          :indexed true
+                                          :default false}
+
                        :content          :string
                        :content-type     :string
                        :timestamp        :int

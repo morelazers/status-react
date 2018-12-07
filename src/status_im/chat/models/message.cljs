@@ -40,13 +40,20 @@
       :message              message})))
 
 (defn- prepare-message
-  [{:keys [content content-type] :as message} chat-id]
-  (let [emoji? (message-content/emoji-only-content? content)]
+  [{:keys [content content-type from] :as message} chat-id]
+  (let [emoji? (message-content/emoji-only-content? content)
+        parent? (:response-to-v2 content)
+        chat-id (:chat-id content)]
     ;; TODO janherich: enable the animations again once we can do them more efficiently
-    (cond-> (assoc message :appearing? true)
+    (cond-> (assoc message
+                   :appearing? true
+                   :tags {chat-id [from]})
 
       emoji?
       (assoc :content-type constants/content-type-emoji)
+
+      parent?
+      (assoc :parent parent?)
 
       (and (= constants/content-type-text content-type) (not emoji?))
       (update :content message-content/enrich-content))))
@@ -84,7 +91,7 @@
      :prioritary? (not (chat-model/multi-user-chat? cofx chat-id))}))
 
 (fx/defn add-message
-  [{:keys [db] :as cofx} batch? {:keys [chat-id message-id clock-value timestamp content from] :as message}]
+  [{:keys [db] :as cofx} {:keys [chat-id message-id clock-value timestamp content from] :as message}]
   (let [current-public-key (accounts.db/current-public-key cofx)
         prepared-message (-> message
                              (prepare-message chat-id)
@@ -117,31 +124,19 @@
                                               :to    chat-id
                                               :from  from}}))))
 
-(defn check-response-to
-  [{{:keys [response-to response-to-v2]} :content :as message}
-   old-id->message]
-  (if (and response-to (not response-to-v2))
-    (let [response-to-v2
-          (or (get-in old-id->message [response-to :message-id])
-              (messages-store/get-message-id-by-old response-to))]
-      (assoc-in message [:content :response-to-v2] response-to-v2))
-    message))
-
 (fx/defn add-received-message
   [{:keys [db] :as cofx}
-   old-id->message
    {:keys [from message-id js-obj content] :as raw-message}]
   (let [{:keys [web3 view-id]} db
         current-public-key            (accounts.db/current-public-key cofx)
         message                       (-> raw-message
                                           (commands-receiving/enhance-receive-parameters cofx)
-                                          (check-response-to old-id->message)
                                           ;; TODO (cammellos): Refactor so it's not computed twice
                                           (add-outgoing-status current-public-key))]
     (fx/merge cofx
               {:transport/confirm-messages-processed [{:web3   web3
                                                        :js-obj js-obj}]}
-              (add-message batch? message)
+              (add-message message)
               ;; Checking :outgoing here only works for now as we don't have a :seen
               ;; status for public chats, if we add processing of our own messages
               ;; for 1-to-1 care needs to be taken not to override the :seen status
@@ -157,26 +152,6 @@
              (>= deleted-at-clock-value clock-value)
              (messages-store/message-exists? message-id)))))
 
-(defn- filter-messages [cofx messages]
-  (:accumulated
-   (reduce (fn [{:keys [seen-ids] :as acc}
-                {:keys [message-id old-message-id] :as message}]
-             (if (and (add-to-chat? cofx message)
-                      (not (seen-ids message-id)))
-               (-> acc
-                   (update :seen-ids conj message-id)
-                   (update :accumulated
-                           (fn [acc]
-                             (-> acc
-                                 (update :messages conj message)
-                                 (assoc-in [:by-old-message-id old-message-id]
-                                           message)))))
-               acc))
-           {:seen-ids    #{}
-            :accumulated {:messages     []
-                          :by-old-message-id {}}}
-           messages)))
-
 (defn extract-chat-id [cofx {:keys [chat-id from message-type]}]
   "Validate and return a valid chat-id"
   (cond
@@ -191,7 +166,7 @@
 
 (fx/defn receive-many
   [{:keys [now] :as cofx} messages]
-  (let [messages-fx-fns (map #(add-received-message true %) messages)]
+  (let [messages-fx-fns (map #(add-received-message %) messages)]
     (apply fx/merge cofx messages-fx-fns)))
 
 (defn system-message [{:keys [now] :as cofx} {:keys [clock-value chat-id content from]}]
@@ -250,7 +225,7 @@
                                :raw-payload-hash (transport.utils/sha3 raw-payload))]
 
     (fx/merge cofx
-              (add-message false message-with-id true)
+              (add-message message-with-id)
               (add-own-status message-id :sending)
               (send chat-id message-id send-record))))
 
@@ -294,7 +269,7 @@
    :data-store/tx [(messages-store/delete-message-tx message-id)]})
 
 (fx/defn add-system-messages [cofx messages]
-  (let [messages-fx (map #(add-message false (system-message cofx %) true) messages)]
+  (let [messages-fx (map #(add-message (system-message cofx %)) messages)]
     (apply fx/merge cofx messages-fx)))
 
 (fx/defn send-message

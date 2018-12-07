@@ -693,8 +693,8 @@
 
 (handlers/register-handler-fx
  :chat/send-plain-text-message
- (fn [{{:keys [current-chat-id]} :db :as cofx} [_ message-text]]
-   (chat.input/send-plain-text-message-fx cofx message-text current-chat-id)))
+ (fn [{{:keys [current-chat-id]} :db :as cofx} [_ message-text current-chat-id response-id]]
+   (chat.input/send-plain-text-message-fx cofx message-text current-chat-id response-id)))
 
 (handlers/register-handler-fx
  :chat/disable-cooldown

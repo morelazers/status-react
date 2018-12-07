@@ -1,6 +1,7 @@
 (ns status-im.ui.components.desktop.tabs
   (:require [re-frame.core :as re-frame]
             status-im.ui.components.desktop.events
+            [status-im.ui.screens.desktop.main.tabs.home.views :as tabs-home-views]
             [status-im.ui.screens.desktop.main.tabs.home.styles :as add-new-style]
             [status-im.ui.components.icons.vector-icons :as icons]
             [taoensso.timbre :as log]
@@ -60,7 +61,7 @@
   (views/letsubs [current-tab [:get-in [:desktop/desktop :tab-view-id]]]
     [react/view
      [react/view {:style tabs.styles/tabs-container}
-      [react/touchable-highlight {:on-press #(re-frame/dispatch [:navigate-to :new-contact])}
+      [react/touchable-highlight {:on-press #(re-frame/dispatch [:set-in [:desktop :popup] tabs-home-views/popup])}
        [react/view {:style add-new-style/add-new}
         [icons/icon :icons/add {:style {:tint-color :white}}]]]
       (for [[index {:keys [content view-id count-subscription]}] tabs-list-indexed]

@@ -12,30 +12,22 @@
    :android        {:line-height 22}
    :ios            {:line-height 22}})
 
-(defn message-padding-top
-  [{:keys [first-in-group? display-username?]}]
-  (if (and display-username?
-           first-in-group?)
-    6
-    2))
-
 (defn last-message-padding
   [{:keys [last? typing]}]
   (when (and last? (not typing))
     {:padding-bottom 16}))
 
 (defn message-body
-  [{:keys [outgoing display-photo?] :as message}]
+  [{:keys [outgoing] :as message}]
   (let [align (if outgoing :flex-end :flex-start)
         direction (if outgoing :row-reverse :row)]
-    (merge {:flex-direction direction
-            :width          230
-            :padding-top    (message-padding-top message)
-            :align-self     align
-            :align-items    align}
-           (when display-photo?
-             {:padding-right 8
-              :padding-left  8}))))
+    {:flex-direction direction
+     :width          230
+     :padding-top 6
+     :align-self     align
+     :align-items    align
+     :padding-right 8
+     :padding-left  8}))
 
 (def message-timestamp
   {:font-size      10
@@ -134,13 +126,12 @@
    :margin-top (if incoming-group 4 0)})
 
 (defn message-view
-  [{:keys [content-type outgoing group-chat first-in-group?]}]
+  [{:keys [content-type outgoing group-chat]}]
   (merge {:padding-vertical   6
           :padding-horizontal 12
           :border-radius      8
-          :margin-top         (if (and first-in-group?
-                                       (or outgoing
-                                           (not group-chat)))
+          :margin-top         (if (or outgoing
+                                      (not group-chat))
                                 16
                                 4)}
          (when-not (= content-type constants/content-type-emoji)
@@ -211,4 +202,3 @@
 (defn extension-install [outgoing]
   {:font-size 12
    :color     (if outgoing colors/white colors/blue)})
-

@@ -140,11 +140,13 @@
 
 (defn send-plain-text-message-fx
   "no command detected, when not empty, proceed by sending text message without command processing"
-  [{:keys [db] :as cofx} message-text current-chat-id]
+  [{:keys [db] :as cofx} message-text current-chat-id response-id]
+  (println "mess" message-text current-chat-id response-id)
   (when-not (string/blank? message-text)
     (chat.message/send-message cofx {:chat-id      current-chat-id
                                      :content-type constants/content-type-text
                                      :content      (cond-> {:chat-id current-chat-id
+                                                            :response-to-v2 response-id
                                                             :text    message-text})})))
 
 (fx/defn send-current-message

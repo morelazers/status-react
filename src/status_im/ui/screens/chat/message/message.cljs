@@ -204,7 +204,7 @@
         [vector-icons/icon :icons/warning {:color colors/red}]]])))
 
 (defn message-delivery-status
-  [{:keys [chat-id message-id current-public-key user-statuses content last-outgoing? outgoing message-type] :as message}]
+  [{:keys [chat-id message-id current-public-key user-statuses content outgoing message-type] :as message}]
   (let [outgoing-status (or (get-in user-statuses [current-public-key :status]) :not-sent)
         delivery-status (get-in user-statuses [chat-id :status])
         status          (or delivery-status outgoing-status)]
@@ -226,25 +226,19 @@
      (chat.utils/format-author from (or username message-username))]))
 
 (defn message-body
-  [{:keys [last-in-group?
-           display-photo?
-           display-username?
-           message-type
+  [{:keys [message-type
            from
            outgoing
            modal?
            username] :as message} content]
   [react/view (style/group-message-wrapper message)
    [react/view (style/message-body message)
-    (when display-photo?
-      [react/view style/message-author
-       (when last-in-group?
-         [react/touchable-highlight {:on-press #(when-not modal? (re-frame/dispatch [:chat.ui/show-profile from]))}
-          [react/view
-           [photos/member-photo from]]])])
+    [react/view style/message-author
+     [react/touchable-highlight {:on-press #(when-not modal? (re-frame/dispatch [:chat.ui/show-profile from]))}
+      [react/view
+       [photos/member-photo from]]]]
     [react/view (style/group-message-view outgoing message-type)
-     (when display-username?
-       [message-author-name from username])
+     [message-author-name from username]
      [react/view {:style (style/timestamp-content-wrapper message)}
       content]]]
    [react/view (style/delivery-status outgoing)

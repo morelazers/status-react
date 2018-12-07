@@ -11,31 +11,42 @@
       (update :message-type keyword)
       (update :content edn/read-string)))
 
+(defn get-by-message-id
+  [message-id]
+  (if-let [js-message (.objectForPrimaryKey @core/account-realm "message" message-id)]
+    (-> js-message
+        (core/realm-obj->clj :message)
+        transform-message)))
+
+(defn get-parent-tree [messages message-id]
+  (if-let [message (when-not (get messages message-id)
+                     (get-by-message-id message-id))]
+    (cond-> (assoc messages message-id message)
+      (:parent message)
+      (get-parent-tree messages (:parent message)))
+    messages))
+
+(defn get-parents [messages]
+  (reduce (fn [acc [message-id {:keys [parent]}]]
+            (if parent
+              (get-parent-tree acc message-id)
+              acc))
+          messages
+          messages))
+
 (defn- get-messages
   ([]
    (get-messages 0))
   ([from]
-   (let [messages (-> (core/get-all @core/account-realm :message)
+   (let [messages (-> (core/get-by-field @core/account-realm :message :seen false)
                       (core/sorted :timestamp :desc)
-                      (core/page from (+ from constants/default-number-of-messages))
+                      #_(core/page from (+ from constants/default-number-of-messages))
                       (core/all-clj :message))]
-     (map transform-message messages))))
-
-(defn- get-by-messages-ids
-  [message-ids]
-  (when (seq message-ids)
-    (keep (fn [{:keys [response-to response-to-v2]}]
-            (when-let [js-message
-                       (if response-to-v2
-                         (.objectForPrimaryKey @core/account-realm "message" response-to-v2)
-                         (core/single (core/get-by-field
-                                       @core/account-realm
-                                       :message :old-message-id response-to)))]
-              [(or response-to-v2 response-to)
-               (-> js-message
-                   (core/realm-obj->clj :message)
-                   transform-message)]))
-          message-ids)))
+     (get-parents
+      (reduce (fn [acc {:keys [message-id] :as message}]
+                (assoc acc message-id (transform-message message)))
+              {}
+              messages)))))
 
 (def default-values
   {:to nil})
@@ -45,13 +56,13 @@
  (fn [cofx _]
    (assoc cofx :get-stored-messages get-messages)))
 
+(re-frame/reg-cofx
+ :data-store/get-message-by-message-id
+ (fn [cofx _]
+   (assoc cofx :get-stored-message-by-message-id get-by-message-id)))
+
 (defn- sha3 [s]
   (.sha3 dependencies/Web3.prototype s))
-
-(re-frame/reg-cofx
- :data-store/get-referenced-messages
- (fn [cofx _]
-   (assoc cofx :get-referenced-messages get-references-by-ids)))
 
 (defn- prepare-content [content]
   (if (string? content)

@@ -41,7 +41,6 @@
                       :desktop/new-group-chat add-new.views/new-group-chat
                       :qr-code      profile.views/qr-code
                       :advanced-settings profile.views/advanced-settings
-                      :chat-profile chat.views/chat-profile
                       :backup-recovery-phrase profile.views/backup-recovery-phrase
                       nil)]
       (when component
