@@ -253,7 +253,8 @@
 
 ;; event code
 
-(defn open-qr-scanner [chain transaction]
+(defn open-qr-scanner [chain text-input transaction]
+  (.blur @text-input)
   (re-frame/dispatch [:navigate-to :recipient-qr-code
                       {:on-recipient
                        (fn [qr-data]
@@ -270,7 +271,7 @@
                              :content             (i18n/label :t/wallet-invalid-address {:data qr-data})
                              :cancel-button-text  (i18n/label :t/see-it-again)
                              :confirm-button-text (i18n/label :t/got-it)
-                             :on-cancel           (partial open-qr-scanner chain transaction)})))}]))
+                             :on-cancel           (partial open-qr-scanner chain text-input transaction)})))}]))
 
 (defn update-recipient [chain transaction error-message value]
   (if (ens/is-valid-eth-name? value)
@@ -288,7 +289,8 @@
   [{:keys [chain transaction on-address]}]
   {:pre [(keyword? chain) (fn? on-address)]}
   (fn []
-    (let [error-message (reagent/atom nil)]
+    (let [error-message (reagent/atom nil)
+          text-input    (atom nil)]
       (fn []
         [react/view {:flex 1}
          [react/view {:flex 1}]
@@ -306,6 +308,7 @@
             :placeholder-text-color "rgb(143,162,234)"
             :multiline true
             :max-length 84
+            :ref #(reset! text-input %)
             ;;NOTE(goranjovic)- :default-value instead of :value to prevent the flickering due to two way binding
             :default-value (or (:to-ens @transaction) (:to @transaction))
             :selection-color colors/green
@@ -333,7 +336,7 @@
                            (fn []
                              (re-frame/dispatch
                               [:request-permissions {:permissions [:camera]
-                                                     :on-allowed (partial open-qr-scanner chain transaction)
+                                                     :on-allowed (partial open-qr-scanner chain text-input transaction)
                                                      :on-denied
                                                      #(utils/set-timeout
                                                        (fn []
