@@ -252,13 +252,31 @@
 
 ;; event code
 
+(defn open-qr-scanner [chain transaction]
+  (re-frame/dispatch [:navigate-to :recipient-qr-code
+                      {:on-recipient
+                       (fn [qr-data]
+                         (if-let [parsed-qr-data (events/extract-qr-code-details chain qr-data)]
+                           (let [{:keys [chain-id]} parsed-qr-data
+                                 tx-data (events/qr-data->transaction-data parsed-qr-data)]
+                             (if (= chain-id (ethereum/chain-keyword->chain-id chain))
+                               (swap! transaction merge tx-data)
+                               (utils/show-popup (i18n/label :t/error)
+                                                 (i18n/label :t/wallet-invalid-chain-id {:data  qr-data
+                                                                                         :chain chain-id}))))
+                           (utils/show-confirmation
+                            {:title               (i18n/label :t/error)
+                             :content             (i18n/label :t/wallet-invalid-address {:data qr-data})
+                             :cancel-button-text  (i18n/label :t/see-it-again)
+                             :confirm-button-text (i18n/label :t/got-it)
+                             :on-cancel           (partial open-qr-scanner chain transaction)})))}]))
+
 (defn choose-address-view
   "A view that allows you to choose an address"
-  [{:keys [chain on-address]}]
+  [{:keys [chain transaction on-address]}]
   {:pre [(keyword? chain) (fn? on-address)]}
   (fn []
-    (let [address (reagent/atom "")
-          error-message (reagent/atom nil)]
+    (let [error-message (reagent/atom nil)]
       (fn []
         [react/view {:flex 1}
          [react/view {:flex 1}]
@@ -268,7 +286,7 @@
                                              :font-size    12
                                              :bottom-value 15}])
           [react/text-input
-           {:on-change-text #(do (reset! address %)
+           {:on-change-text #(do (swap! transaction assoc :to %)
                                  (reset! error-message nil))
             :auto-focus true
             :auto-capitalize :none
@@ -277,7 +295,7 @@
             :placeholder-text-color "rgb(143,162,234)"
             :multiline true
             :max-length 42
-            :value @address
+            :value (:to @transaction)
             :selection-color colors/green
             :accessibility-label :recipient-address-input
             :style styles/choose-recipient-text-input}]]
@@ -288,7 +306,7 @@
                            :on-press #(react/get-from-clipboard
                                        (fn [addr]
                                          (when (and addr (not (string/blank? addr)))
-                                           (reset! address (string/trim addr)))))}
+                                           (swap! transaction assoc :to (string/trim addr)))))}
            [react/view {:flex-direction :row
                         :padding-horizontal 18}
             [vector-icons/icon :icons/paste {:color colors/white-transparent}]
@@ -303,19 +321,7 @@
                            (fn []
                              (re-frame/dispatch
                               [:request-permissions {:permissions [:camera]
-                                                     :on-allowed
-                                                     #(re-frame/dispatch [:navigate-to
-                                                                          :recipient-qr-code
-                                                                          {:on-recipient
-                                                                           (fn [qr-data]
-                                                                             (let [{:keys [chain-id] :as tx-data} (events/extract-qr-code-details chain qr-data)
-                                                                                   {:keys [to]} (events/qr-data->transaction-data tx-data)]
-                                                                               (if (= (:chain-id tx-data)
-                                                                                      (ethereum/chain-keyword->chain-id chain))
-                                                                                 (reset! address to)
-                                                                                 (utils/show-popup (i18n/label :t/error)
-                                                                                                   (i18n/label :t/wallet-invalid-chain-id {:data  qr-data
-                                                                                                                                           :chain chain-id})))))}])
+                                                     :on-allowed (partial open-qr-scanner chain transaction)
                                                      :on-denied
                                                      #(utils/set-timeout
                                                        (fn []
@@ -330,16 +336,14 @@
                                   :font-size 15
                                   :line-height 22}}
               (i18n/label :t/scan)]]]]
-          (let [disabled? (string/blank? @address)]
+          (let [disabled? (string/blank? (:to @transaction))]
             [address-button {:disabled? disabled?
                              :underlay-color colors/black-transparent
                              :background-color (if disabled? colors/blue colors/white)
                              :on-press
-                             #(events/chosen-recipient
-                               chain @address
-                               on-address
-                               (fn on-error [_]
-                                 (reset! error-message (i18n/label :t/invalid-address))))}
+                             #(events/chosen-recipient chain (:to @transaction) on-address
+                                                       (fn on-error [_]
+                                                         (reset! error-message (i18n/label :t/invalid-address))))}
              [react/text {:style {:color (if disabled? colors/white colors/blue)
                                   :font-size 15
                                   :line-height 22}}
@@ -400,10 +404,9 @@
 
 ;; TODO clean up all dependencies here, leaving these in place until all behavior is verified on
 ;; all platforms
-(defn- choose-address-contact [{:keys [modal? contacts transaction scroll advanced? network all-tokens amount-input network-status] :as opts}]
+(defn- choose-address-contact [{:keys [modal? contacts scroll advanced? transaction network all-tokens amount-input network-status] :as opts}]
 
-  (let [{:keys [amount amount-text amount-error asset-error show-password-input? to to-name sufficient-funds?
-                sufficient-gas? in-progress? from-chat? symbol]} transaction
+  (let [transaction                  (reagent/atom transaction)
         chain                        (ethereum/network->chain-keyword network)
         native-currency              (tokens/native-currency chain)
         {:keys [decimals] :as token} (tokens/asset-for all-tokens chain symbol)
@@ -414,9 +417,10 @@
      [simple-tab-navigator {:address  {:name "Address"
                                        :component (choose-address-view
                                                    {:chain chain
+                                                    :transaction transaction
                                                     :on-address
                                                     #(re-frame/dispatch [:navigate-to :wallet-choose-amount
-                                                                         {:transaction (assoc transaction :to %)
+                                                                         {:transaction (swap! transaction assoc :to %)
                                                                           :native-currency native-currency
                                                                           :modal? modal?}])})}
                             :contacts {:name "Contacts"
@@ -428,7 +432,7 @@
                                                       (re-frame/dispatch [:navigate-to :wallet-choose-amount
                                                                           {:modal? modal?
                                                                            :native-currency native-currency
-                                                                           :transaction (assoc transaction :to address)}]))})}}
+                                                                           :transaction (swap! transaction assoc :to address)}]))})}}
       :address]]))
 
 ;; ----------------------------------------------------------------------
