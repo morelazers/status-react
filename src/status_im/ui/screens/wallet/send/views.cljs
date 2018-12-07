@@ -33,6 +33,7 @@
             [status-im.utils.ethereum.tokens :as tokens]
             [status-im.utils.ethereum.core :as ethereum]
             [status-im.transport.utils :as transport.utils]
+            [status-im.utils.ethereum.ens :as ens]
             [taoensso.timbre :as log]
             [reagent.core :as reagent]
             [status-im.ui.components.colors :as colors]
@@ -271,6 +272,17 @@
                              :confirm-button-text (i18n/label :t/got-it)
                              :on-cancel           (partial open-qr-scanner chain transaction)})))}]))
 
+(defn update-recipient [chain transaction error-message value]
+  (if (ens/is-valid-eth-name? value)
+    (do (ens/get-addr (get @re-frame.db/app-db :web3)
+                      (get ens/ens-registries chain)
+                      value
+                      #(if (ethereum/address? %)
+                         (swap! transaction assoc :to-ens value :to %)
+                         (reset! error-message "Unknown ENS name"))))
+    (do (swap! transaction assoc :to value)
+        (reset! error-message nil))))
+
 (defn choose-address-view
   "A view that allows you to choose an address"
   [{:keys [chain transaction on-address]}]
@@ -286,16 +298,16 @@
                                              :font-size    12
                                              :bottom-value 15}])
           [react/text-input
-           {:on-change-text #(do (swap! transaction assoc :to %)
-                                 (reset! error-message nil))
+           {:on-change-text (partial update-recipient chain transaction error-message)
             :auto-focus true
             :auto-capitalize :none
             :auto-correct false
             :placeholder "0x... or name.eth"
             :placeholder-text-color "rgb(143,162,234)"
             :multiline true
-            :max-length 42
-            :value (:to @transaction)
+            :max-length 84
+            ;;NOTE(goranjovic)- :default-value instead of :value to prevent the flickering due to two way binding
+            :default-value (or (:to-ens @transaction) (:to @transaction))
             :selection-color colors/green
             :accessibility-label :recipient-address-input
             :style styles/choose-recipient-text-input}]]
